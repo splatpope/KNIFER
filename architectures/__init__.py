@@ -1,0 +1,1 @@
+from .dcgan.train import Trainer as DCGANTrainer
