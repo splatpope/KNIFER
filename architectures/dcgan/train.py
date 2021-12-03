@@ -20,6 +20,8 @@ class Trainer():
 
         self.GEN = Generator(self.img_size, self.channels, self.z_size)
         self.DISC = Discriminator(self.img_size, self.channels)
+        self.GEN.to(DEVICE)
+        self.DISC.to(DEVICE)
 
         self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.lr, betas=(b1, b2))
         self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.lr, betas=(b1, b2))
