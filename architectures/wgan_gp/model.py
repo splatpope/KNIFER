@@ -43,14 +43,14 @@ class Generator(nn.Module):
         ]
 
     def forward(self, input):
-        if input.is_cuda and self.ngpu > 1:
+        if input.is_cuda and self.n_gpu > 1:
             output = nn.parallel.data_parallel(self.main, input, range(self.n_gpu))
         else:
             output = self.main(input)
         return output
 
 class Discriminator(nn.Module):
-    def __init__(self, img_size, channels, leak_f=0.2, ngpu=1, features=None):
+    def __init__(self, img_size, channels, leak_f=0.2, n_gpu=1, features=None):
         super(Discriminator, self).__init__()
         self.img_size = img_size
         if not features:
@@ -58,7 +58,7 @@ class Discriminator(nn.Module):
         self.n_f = features
         self.n_c = channels
         self.leak_f = leak_f
-        self.ngpu = ngpu
+        self.n_gpu = n_gpu
         self.main = self._compose()
         _init_weights(self)
 
@@ -92,8 +92,8 @@ class Discriminator(nn.Module):
         ]
 
     def forward(self, input):
-        if input.is_cuda and self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
+        if input.is_cuda and self.n_gpu > 1:
+            output = nn.parallel.data_parallel(self.main, input, range(self.n_gpu))
         else:
             output = self.main(input)
         return output.view(-1, 1).squeeze(1)
