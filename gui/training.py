@@ -48,7 +48,7 @@ class TrainWindow(tk.Toplevel):
     def stop_train(self):
         self.dotrain = False
         self.stop_train_button.configure(state="disabled")
-        self.do_train_button.configure(state="normal")
+        self.do_train_button.configure(state="normal", text="Resume")
     
     def train_loop(self, data=None):
         if self.dotrain:
@@ -58,6 +58,7 @@ class TrainWindow(tk.Toplevel):
             if not data:
                 data = self.current_data
             self.current_batch = self.manager.proceed(data, self.current_batch)
+            ## TODO : adapt waiting time to processing time so very fast learning is not stunted
             self.after(100, lambda: self.train_loop(data))
         else:
             self.current_data = data
@@ -78,8 +79,10 @@ class TrainWindow(tk.Toplevel):
         NewModelWindow(self)
 
     def setup_training(self, *args, **kwargs):
+        self.current_batch = 0
+        self.current_epoch = -1
         self.manager.set_trainer(*args, **kwargs)
-        self.do_train_button.configure(state="normal")
+        self.do_train_button.configure(state="normal", text="Train")
         self.viz_button.configure(state="normal")
 
     def load_state(self):
@@ -100,7 +103,7 @@ class TrainWindow(tk.Toplevel):
         self.viz_button.configure(state="normal")
     
     def save_state(self):
-        self.manager.save(self.current_batch)
+        self.manager.save()
 
     def visualize(self):
         self.manager.synthetize_viz()

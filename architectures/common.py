@@ -6,6 +6,12 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from . import DCGANTrainer, WGAN_GPTrainer
 
+#TODO : allow for setting number of features for models
+# currently equal to image size
+#TODO : save current batch id AND ordered data; OR simply allow saving only on epoch change
+# this is to prevent messing with the ordering of mid-epoch data used for training
+# which defeats the purpose of stochastic batching
+
 ## helper class to handle launching epochs, checkpointing, visualization
 ## meant to be used by the GUI
 class TrainingManager():
@@ -17,6 +23,8 @@ class TrainingManager():
         self.dataset_folder = folder
 
     def set_trainer(self, params):
+        self.epoch = 0
+        self.batch = 0
         self.params = params
         arch = params["arch"]
         img_size = params["img_size"]
@@ -31,6 +39,8 @@ class TrainingManager():
             self.set_trainer_DCGAN(self.params)
         if arch == "WGAN_GP":
             self.set_trainer_WGAN_GP(self.params)
+        if (torch.cuda.is_available()): ## may or may not work
+            torch.cuda.empty_cache()
         self.fixed = self.trainer.get_fixed()
 
     ## TODO : rework training API to simply pass params and have the trainers check them
@@ -38,23 +48,23 @@ class TrainingManager():
     def set_trainer_DCGAN(self, params):
         self.trainer = DCGANTrainer(
             self.dataset, 
-            params["batch_size"],
-            params["latent_size"],
-            params["lr"],
-            params["b1"],
-            params["b2"],
+            batch_size=params["batch_size"],
+            latent_size=params["latent_size"],
+            learning_rate=params["lr"],
+            b1=params["b1"],
+            b2=params["b2"],
         )
 
     def set_trainer_WGAN_GP(self, params):
         self.trainer = WGAN_GPTrainer(
             self.dataset, 
-            params["batch_size"],
-            params["latent_size"],
-            params["lr"],
-            params["b1"],
-            params["b2"],
-            params["critic_iters"],
-            params["lambda_gp"],
+            batch_size=params["batch_size"],
+            latent_size=params["latent_size"],
+            learning_rate=params["lr"],
+            b1=params["b1"],
+            b2=params["b2"],
+            critic_iters=params["critic_iters"],
+            lambda_gp=params["lambda_gp"],
         )
 
     def proceed(self, data, batch_id):
@@ -72,7 +82,7 @@ class TrainingManager():
         fixed_fakes = self.trainer.GEN(self.fixed)
         #grid = vutils.make_grid(fixed_fakes, normalize=True)
         #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
-        vutils.save_image(fixed_fakes, normalize=True, fp=f"./viz/{self.get_filestamp()}.png")
+        vutils.save_image(fixed_fakes, fp=f"./viz/{self.get_filestamp()}.png")
 
     ## TODO : allow giving a path
     def save(self):

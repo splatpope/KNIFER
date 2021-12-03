@@ -18,14 +18,17 @@ class Trainer():
         sample = dataset[0][0]
         self.img_size = sample.shape[2]
         self.channels = sample.shape[0]
+        print(self.channels)
 
         self.data = DataLoader(dataset, self.batch_size, shuffle=True)
 
         self.GEN = Generator(self.img_size, self.channels, self.z_size)
         self.CRITIC = Discriminator(self.img_size, self.channels)
+        self.GEN.to(DEVICE)
+        self.CRITIC.to(DEVICE)
 
         self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.lr, betas=(b1, b2))
-        self.opt_critic = optim.Adam(self.DISC.parameters(), lr=self.lr, betas=(b1, b2))
+        self.opt_critic = optim.Adam(self.CRITIC.parameters(), lr=self.lr, betas=(b1, b2))
         #self.criterion = nn.BCELoss() ## not needed for wgan
 
         self.state = "ready"
@@ -34,13 +37,13 @@ class Trainer():
         x = value.to(DEVICE) # real
         for i in range(self.critic_iters):
             ## Get a batch of noise and run it through G to get a fake batch
-            z = torch.randn(self.batch_size, self.z_size, 1, 1).to(DEVICE)
+            z = torch.randn(value.shape[0], self.z_size, 1, 1).to(DEVICE)
             g_z = self.GEN(z) ## fake
             ## Run the real batch through D and compute D's real loss
             d_x = self.CRITIC(x) ## critic real
             #loss_d_x = self.criterion(d_x, torch.ones_like(d_x)) ## not needed for wgan
             ## Run the fake batch through D and compute D's fake loss
-            d_g_z = self.DISC(g_z.detach()) ## critic fake
+            d_g_z = self.CRITIC(g_z.detach()) ## critic fake
             #loss_d_g_z = self.criterion(d_g_z, torch.zeros_like(d_g_z)) ## not needed for wgan
             gp = gradient_penalty(self.CRITIC, x, g_z, device=DEVICE)
             loss_critic = (
@@ -57,7 +60,7 @@ class Trainer():
         #loss_d.backward()
         #self.opt_disc.step()
         ## Rerun the fake batch through trained D, then train G
-        output = self.DISC(g_z) # critic fake post training
+        output = self.CRITIC(g_z) # critic fake post training
         loss_g = -torch.mean(output)
         self.GEN.zero_grad()
         loss_g.backward()
@@ -69,13 +72,13 @@ class Trainer():
     def serialize(self):
         return {
             'G_state': self.GEN.state_dict(),
-            'D_state': self.DISC.state_dict(),
+            'D_state': self.CRITIC.state_dict(),
             'optG_state': self.opt_gen.state_dict(),
-            'optD_state':self.opt_disc.state_dict(),
+            'optD_state':self.opt_critic.state_dict(),
         }
 
     def deserialize(self, state):
         self.GEN.load_state_dict(state['G_state'])
-        self.DISC.load_state_dict(state['D_state'])
+        self.CRITIC.load_state_dict(state['D_state'])
         self.opt_gen.load_state_dict(state['optG_state'])
-        self.opt_disc.load_state_dict(state['optD_state'])
+        self.opt_critic.load_state_dict(state['optD_state'])
