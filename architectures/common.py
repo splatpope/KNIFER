@@ -81,7 +81,7 @@ class TrainingManager():
         vutils.save_image(fixed_fakes, fp=f"./viz/{self.get_filestamp()}.png")
 
     ## TODO : allow giving a path
-    def save(self):
+    def save(self, dest):
         if not self.checkpoint:
             self._log("Nothing to save !")
             return False
@@ -91,12 +91,12 @@ class TrainingManager():
             'params': self.params,
             'epoch': self.epoch,
         }
-        path = f"./savestates/{self.get_filestamp()}.pth"
-        try:
-            torch.save(state, path)
-            return path
-        except:
-            return False
+        if not dest:
+            dest = "./savestates/"
+        path = f"{dest}{self.get_filestamp()}.pth"
+        
+        torch.save(state, path)
+        return path
 
     def load(self, path) -> int:
         state = torch.load(path)
