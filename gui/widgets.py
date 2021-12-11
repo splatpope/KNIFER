@@ -85,7 +85,8 @@ class Pow2SpinboxL(IntSpinboxL):
         )
 
 ## TODO add different flavors for each arch
-# make sure that the training window only gets the parameters it needs to not clutter the manager
+# to make sure that the training window only gets the parameters it needs to not clutter the manager
+# although the actual trainer wont mind having more than it needs
 class MiscParameterFrame(ttk.Frame):
     def __init__(self, master=None):
         ttk.Frame.__init__(self, master)
@@ -164,7 +165,7 @@ class MiscParameterFrame(ttk.Frame):
 
     def get_params(self):
         return {
-            "lr": float(self.lr_var.get()),
+            "learning_rate": float(self.lr_var.get()),
             "b1": float(self.b1_var.get()),
             "b2": float(self.b2_var.get()),
             "critic_iters": self.critic_iters_box.get_value(),

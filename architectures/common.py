@@ -12,6 +12,11 @@ from . import DCGANTrainer, WGAN_GPTrainer
 # this is to prevent messing with the ordering of mid-epoch data used for training
 # which defeats the purpose of stochastic batching
 
+KNIFER_ARCHS = {
+    "DCGAN": DCGANTrainer,
+    "WGAN_GP": WGAN_GPTrainer,
+}
+
 ## helper class to handle launching epochs, checkpointing, visualization
 ## meant to be used by the GUI
 class TrainingManager():
@@ -23,6 +28,9 @@ class TrainingManager():
         self.dataset_folder = folder
 
     def set_trainer(self, params):
+        self.trainer = None
+        if (torch.cuda.is_available()): ## may or may not work
+            torch.cuda.empty_cache()
         self.epoch = 0
         self.batch = 0
         self.params = params
@@ -35,37 +43,18 @@ class TrainingManager():
             transforms.ToTensor(),
             transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5)),
         ]))
-        if arch == "DCGAN":
-            self.set_trainer_DCGAN(self.params)
-        if arch == "WGAN_GP":
-            self.set_trainer_WGAN_GP(self.params)
-        if (torch.cuda.is_available()): ## may or may not work
-            torch.cuda.empty_cache()
+        try:
+            self.trainer = KNIFER_ARCHS[arch](self.dataset, params) 
+            ## may lead to unused params being passed
+            ## who cares ?
+        except KeyError as e:
+            print(f"Parameter {e.args[0]} required by {arch}.")
+
+        if not self.trainer:
+            print("Trainer initialization failed.")
+
+
         self.fixed = self.trainer.get_fixed()
-
-    ## TODO : rework training API to simply pass params and have the trainers check them
-    ## this will greatly simplify this process : define a dict of all trainers, simply pass dataset+params to whichever matches arch
-    def set_trainer_DCGAN(self, params):
-        self.trainer = DCGANTrainer(
-            self.dataset, 
-            batch_size=params["batch_size"],
-            latent_size=params["latent_size"],
-            learning_rate=params["lr"],
-            b1=params["b1"],
-            b2=params["b2"],
-        )
-
-    def set_trainer_WGAN_GP(self, params):
-        self.trainer = WGAN_GPTrainer(
-            self.dataset, 
-            batch_size=params["batch_size"],
-            latent_size=params["latent_size"],
-            learning_rate=params["lr"],
-            b1=params["b1"],
-            b2=params["b2"],
-            critic_iters=params["critic_iters"],
-            lambda_gp=params["lambda_gp"],
-        )
 
     def proceed(self, data, batch_id):
         try:
