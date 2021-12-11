@@ -25,9 +25,9 @@ class TrainingManager():
         self.dataset_folder = None
         self.debug = debug
 
-    def _log(self, text):
+    def _log(self, *args, **kwargs):
         if self.debug:
-            print(text)
+            print(*args, **kwargs)
 
     def set_dataset_folder(self, folder):
         self.dataset_folder = folder
