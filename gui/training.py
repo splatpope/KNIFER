@@ -5,6 +5,8 @@ import tkinter.filedialog as tkfd
 from architectures.common import TrainingManager
 from .widgets import ButtonL, ComboboxL, MiscParameterFrame, IntSpinboxL, Pow2SpinboxL
 
+KNIFER_DEBUG = True
+
 class TrainWindow(tk.Toplevel):
     def __init__(self, master=None):
         tk.Toplevel.__init__(self, master)
@@ -64,7 +66,7 @@ class TrainWindow(tk.Toplevel):
             self.current_data = data
 
     def clear_manager(self):
-        self.manager = TrainingManager()
+        self.manager = TrainingManager(debug=KNIFER_DEBUG)
 
     def load_dset(self):
         folder = tkfd.askdirectory(initialdir=".", mustexist=True, title="Pick a dataset folder")

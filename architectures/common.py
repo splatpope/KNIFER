@@ -22,6 +22,7 @@ KNIFER_ARCHS = {
 class TrainingManager():
     def __init__(self, debug=False):
         self.epoch = 0
+        self.checkpoint = None
         self.dataset_folder = None
         self.debug = debug
 
@@ -69,6 +70,7 @@ class TrainingManager():
             self.trainer.process_batch(batch, labels)
             return batch_id + 1
         except StopIteration:
+            self.checkpoint = self.trainer.serialize()
             self.epoch += 1
             return 0
 
@@ -80,17 +82,21 @@ class TrainingManager():
 
     ## TODO : allow giving a path
     def save(self):
+        if not self.checkpoint:
+            self._log("Nothing to save !")
+            return False
         state = {
             'dataset': self.dataset_folder,
-            'model': self.trainer.serialize(),
+            'model': self.checkpoint,
             'params': self.params,
             'epoch': self.epoch,
-            'batch': self.batch,
         }
-        arch = state['params']['arch']
-        epoch = state['epoch']
-        batch = state['batch']
-        torch.save(state, f"./savestates/{self.get_filestamp()}.pth")
+        path = f"./savestates/{self.get_filestamp()}.pth"
+        try:
+            torch.save(state, path)
+            return path
+        except:
+            return False
 
     def load(self, path) -> int:
         state = torch.load(path)
@@ -98,12 +104,11 @@ class TrainingManager():
         self.set_trainer(state['params'])
         self.trainer.deserialize(state['model'])
         self.epoch = state['epoch']
-        self.batch = state['batch']
+        self.batch = 0
         return self.batch
 
     def get_filestamp(self) -> str:
         arch = self.params["arch"]
         epoch = self.epoch
-        batch = self.batch
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-        return f"{arch}_{timestamp}_{epoch}-{batch}"
+        return f"{arch}_{timestamp}_{epoch}"
