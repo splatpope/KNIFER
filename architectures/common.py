@@ -20,9 +20,14 @@ KNIFER_ARCHS = {
 ## helper class to handle launching epochs, checkpointing, visualization
 ## meant to be used by the GUI
 class TrainingManager():
-    def __init__(self):
+    def __init__(self, debug=False):
         self.epoch = 0
         self.dataset_folder = None
+        self.debug = debug
+
+    def _log(self, text):
+        if self.debug:
+            print(text)
 
     def set_dataset_folder(self, folder):
         self.dataset_folder = folder
@@ -60,7 +65,7 @@ class TrainingManager():
         try:
             (batch, labels) = next(data)
             self.batch = batch_id
-            print("epoch", self.epoch, "batch", batch_id)
+            self._log("epoch", self.epoch, "batch", batch_id)
             self.trainer.process_batch(batch, labels)
             return batch_id + 1
         except StopIteration:
