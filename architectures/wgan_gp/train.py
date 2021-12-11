@@ -8,17 +8,23 @@ from .util import gradient_penalty
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Trainer():
-    def __init__(self, dataset, batch_size=16, latent_size=100, learning_rate=2e-4, b1=0.0, b2=0.9, critic_iters=5, lambda_gp = 10):
-        self.batch_size = batch_size
-        self.lr = learning_rate
-        self.z_size = latent_size
-        self.critic_iters = critic_iters
-        self.lambda_gp = lambda_gp
+    def __init__(self, dataset, params):
+        try:
+            self.batch_size = params["batch_size"]
+            self.lr = params["learning_rate"]
+            self.z_size = params["latent_size"]
+            self.b1 = params["b1"]
+            self.b2 = params["b2"]
+            self.critic_iters = params["critic_iters"]
+            self.lambda_gp = params["lambda_gp"]
+        except KeyError:
+            raise
+        
+        betas = (self.b1, self.b2)
 
         sample = dataset[0][0]
         self.img_size = sample.shape[2]
         self.channels = sample.shape[0]
-        print(self.channels)
 
         self.data = DataLoader(dataset, self.batch_size, shuffle=True)
 
@@ -27,8 +33,8 @@ class Trainer():
         self.GEN.to(DEVICE)
         self.CRITIC.to(DEVICE)
 
-        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.lr, betas=(b1, b2))
-        self.opt_critic = optim.Adam(self.CRITIC.parameters(), lr=self.lr, betas=(b1, b2))
+        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.lr, betas=betas)
+        self.opt_critic = optim.Adam(self.CRITIC.parameters(), lr=self.lr, betas=betas)
         #self.criterion = nn.BCELoss() ## not needed for wgan
 
         self.state = "ready"

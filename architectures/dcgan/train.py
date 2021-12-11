@@ -7,11 +7,18 @@ from .model import Generator, Discriminator
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Trainer():
-    def __init__(self, dataset, batch_size=16, latent_size=100, learning_rate=2e-4, b1=0.5, b2=0.999):
-        self.batch_size = batch_size
-        self.lr = learning_rate
-        self.z_size = latent_size
+    def __init__(self, dataset, params: dict):
+        try:
+            self.batch_size = params["batch_size"]
+            self.lr = params["learning_rate"]
+            self.z_size = params["latent_size"]
+            self.b1 = params["b1"]
+            self.b2 = params["b2"]
+        except KeyError:
+            raise
 
+        betas = (self.b1, self.b2)
+        
         sample = dataset[0][0]
         self.img_size = sample.shape[2]
         self.channels = sample.shape[0]
@@ -23,8 +30,8 @@ class Trainer():
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 
-        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.lr, betas=(b1, b2))
-        self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.lr, betas=(b1, b2))
+        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.lr, betas=betas)
+        self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.lr, betas=betas)
         self.criterion = nn.BCELoss()
 
         self.state = "ready"
