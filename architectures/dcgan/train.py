@@ -23,10 +23,26 @@ class Trainer():
         self.img_size = sample.shape[2]
         self.channels = sample.shape[0]
 
+        if not "grids_g" in params:
+            grids_g = [1]
+            i = 4
+            while i <= self.img_size:
+                grids_g.append(i)
+                i *= 2
+        else:
+            grids_g = params["grids_g"]
+        print(grids_g)
+        assert(grids_g[-1] == self.img_size)
+        if not "grids_d" in params:
+            grids_d = grids_g[::-1]
+        else:
+            grids_d = params["grids_d"]
+        assert(grids_d[0] == self.img_size)
+
         self.data = DataLoader(dataset, self.batch_size, shuffle=True)
 
-        self.GEN = Generator(self.img_size, self.channels, self.z_size)
-        self.DISC = Discriminator(self.img_size, self.channels)
+        self.GEN = Generator(grids_g, self.channels, self.z_size)
+        self.DISC = Discriminator(grids_d, self.channels)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 

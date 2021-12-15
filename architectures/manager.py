@@ -5,20 +5,22 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from . import DCGANTrainer, WGAN_GPTrainer
+from . import DCGANTrainer_256_3
 
 #TODO : allow for setting number of features for models
-# currently equal to image size
+# currently equal to biggest grid size
 #TODO : save current batch id AND ordered data; OR simply allow saving only on epoch change
 # this is to prevent messing with the ordering of mid-epoch data used for training
 # which defeats the purpose of stochastic batching
 
 KNIFER_ARCHS = {
     "DCGAN": DCGANTrainer,
+    "DCGAN_256_3": DCGANTrainer_256_3,
     "WGAN_GP": WGAN_GPTrainer,
 }
 
 ## helper class to handle launching epochs, checkpointing, visualization
-## meant to be used by the GUI
+## meant to be used by the GUI, but can be used alone
 class TrainingManager():
     def __init__(self, debug=False):
         self.epoch = 0
@@ -55,6 +57,8 @@ class TrainingManager():
             ## who cares ?
         except KeyError as e:
             print(f"Parameter {e.args[0]} required by {arch}.")
+        except Exception:
+            raise
 
         if not self.trainer:
             print("Trainer initialization failed.")
@@ -75,13 +79,14 @@ class TrainingManager():
             return 0
 
     def synthetize_viz(self):
-        fixed_fakes = self.trainer.GEN(self.fixed)
-        #grid = vutils.make_grid(fixed_fakes, normalize=True)
-        #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
-        vutils.save_image(fixed_fakes, fp=f"./viz/{self.get_filestamp()}.png")
+        with torch.no_grad():
+            fixed_fakes = self.trainer.GEN(self.fixed).detach()
+            #grid = vutils.make_grid(fixed_fakes, normalize=True)
+            #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
+            vutils.save_image(fixed_fakes, fp=f"./viz/{self.get_filestamp()}.png")
 
     ## TODO : allow giving a path
-    def save(self, dest):
+    def save(self, dest=None):
         if not self.checkpoint:
             self._log("Nothing to save !")
             return False

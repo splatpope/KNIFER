@@ -37,7 +37,7 @@ class Generator(nn.Module):
         _validate_grids(grids)
         assert(grids[0] == 1)   ## input must be 1-D
         if not features:    ## output_img size by default
-            features = grids[-1]
+            features = grids[-1] * 2**(len(grids)-1)
         upscales = _layers(grids)
         if not feature_scales:  ## divide by 2 each step by default
             feature_scales = [2**-i for i in range(len(upscales)-1)]
