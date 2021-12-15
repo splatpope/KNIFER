@@ -2,45 +2,68 @@ import math
 from typing import OrderedDict
 import torch
 import torch.nn as nn
+from ..common import UpSample, DownSample, validate_grids, layers
+
+def _init_weights(model):
+    for m in model.modules():
+        if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d, nn.InstanceNorm2d)):
+            nn.init.normal_(m.weight.data, 0.0, 0.02)
 
 class Generator(nn.Module):
-    def __init__(self, img_size, channels, latentSize, n_gpu=1, features=None):
+    def __init__(self, grids, out_channels, latent_size, n_gpu=1, features=None, feature_scales=None):
         super(Generator, self).__init__()
-        self.img_size = img_size
-        if not features:
-            features = self.img_size
+        
+        validate_grids(grids)
+        assert(grids[0] == 1)   ## input must be 1-D
+        if not features:    ## output img size * n inner blocks by default
+            features = grids[-1] * 2**(len(grids)-3)
+        upscales = layers(grids)
+        if not feature_scales:  ## divide by 2 each step by default
+            feature_scales = [2**-i for i in range(len(upscales)-1)]
+
         self.n_f = features
-        self.n_c = channels
-        self.n_z = latentSize
+        self.n_c = out_channels
+        self.n_z = latent_size
         self.n_gpu = n_gpu
-        self.main = self._compose()
+        
+        ## Create input layer
+        blocks = [("input", self._input(self.n_f, upscales[0]))]
+        ## Create inner layers
+        for i, factor in enumerate(upscales[1:-1]):
+            f_in = self.n_f * feature_scales[i]
+            f_out = self.n_f * feature_scales[i+1]
+            blocks.append(
+                (f"up_{i}", self._inner_block(int(f_in), int(f_out), factor))
+            )
+        ## Create output layer
+        last_f = self.n_f * feature_scales[-1]
+        blocks.append(
+            ("output", self._output(int(last_f), upscales[-1]))
+        )
+        ## Compose
+        self.main = nn.Sequential(OrderedDict(blocks))
+
         _init_weights(self)
 
-    def _compose(self):
-        n_b = _n_inner_blocks(self.img_size)
-        ff = int(2**n_b)
-        ops = list()
-        ## Create input block
-        ops += self._block(self.n_z, self.n_f * ff, 4, 1, 0)
-        ## Calculate middle blocks
-        while(ff > 1):
-            in_c = int(self.n_f * ff)
-            ff /= 2
-            out_c = int(self.n_f * ff)
-            ops += self._block(in_c, out_c, 4, 2, 1)
-        ## Create output block
-        ops += [
-            (f"up_{int(ff)}", nn.ConvTranspose2d(self.n_f, self.n_c, kernel_size=4, stride=2, padding=1, bias=False)),
-            ("img_out", nn.Tanh()),
-        ]
-        return nn.Sequential(OrderedDict(ops))
+    def _input(self, features, start_grid):
+        return nn.Sequential(
+            nn.ConvTranspose2d(self.n_z, features, start_grid, bias=False),
+            nn.BatchNorm2d(features),
+            nn.ReLU(True),
+        )
 
-    def _block(self, in_c, out_c, kernel_size, stride, padding):
-        return [
-            (f"up_{out_c}", nn.ConvTranspose2d(in_c, out_c, kernel_size, stride, padding, bias=False)),
-            (f"bn_{out_c}" ,nn.BatchNorm2d(out_c)),
-            (f"relu_{out_c}", nn.ReLU(True)),
-        ]
+    def _inner_block(self, in_c, out_c, factor):
+        return nn.Sequential(
+            UpSample(in_c, out_c, factor, bias=False),
+            nn.BatchNorm2d(out_c),
+            nn.ReLU(True),
+        )
+
+    def _output(self, features, factor):
+        return nn.Sequential(
+            UpSample(features, self.n_c, factor),
+            nn.Tanh(),
+        )
 
     def forward(self, input):
         if input.is_cuda and self.n_gpu > 1:
@@ -50,46 +73,57 @@ class Generator(nn.Module):
         return output
 
 class Discriminator(nn.Module):
-    def __init__(self, img_size, channels, leak_f=0.2, n_gpu=1, features=None):
+    def __init__(self, grids, channels, leak_f=0.2, n_gpu=1, features=None, feature_scales=None):
         super(Discriminator, self).__init__()
-        self.img_size = img_size
+
+        validate_grids(grids)
+        assert(grids[-1] == 1)  ## output must be 1-D
         if not features:
-            features = self.img_size
+            features = grids[0]
+        downscales = layers(grids)
+        if not feature_scales:  ## multiply by 2 each step by default
+            feature_scales = [2**i for i in range(len(downscales)-1)]
+
         self.n_f = features
         self.n_c = channels
         self.leak_f = leak_f
         self.n_gpu = n_gpu
-        self.main = self._compose()
+        ## Create input layer
+        blocks = [("input", self._input(self.n_f, downscales[0]))]
+        ## Create inner layers
+        for i, factor in enumerate(downscales[1:-1]):
+            f_in = self.n_f * feature_scales[i]
+            f_out = self.n_f * feature_scales[i+1]
+            blocks.append(
+                (f"down_{i}", self._inner_block(int(f_in), int(f_out), factor))
+            )
+        ## Create output layer
+        last_f = self.n_f * feature_scales[-1]
+        blocks.append(
+            ("output", self._output(int(last_f), downscales[-1]))
+        )
+        ## Compose
+        self.main = nn.Sequential(OrderedDict(blocks))
+
         _init_weights(self)
 
-    def _compose(self):
-        n_b = _n_inner_blocks(self.img_size)
-        ff = 1
-        ops = list()
-        ## Create input block
-        ops += [
-            (f"down_{int(ff)}", nn.Conv2d(self.n_c, self.n_f * ff, 4, 2, 1)),
-            (f"lrelu_{int(ff)}", nn.LeakyReLU(self.leak_f, True)),
-        ]
-        ## Calculate middle blocks
-        while(ff < int(2**n_b)):
-            in_c = int(self.n_f * ff)
-            ff *= 2
-            out_c = int(self.n_f * ff)
-            ops += self._block(in_c, out_c, 4, 2, 1)
-        ## Create output block
-        ops += [
-            (f"down_{int(ff)}", nn.Conv2d(self.n_f * ff, 1, kernel_size=4, stride=1, padding=0, bias=False)),
-            #(f"label", nn.Sigmoid()), ## Not needed for WGAN
-        ]
-        return nn.Sequential(OrderedDict(ops))
+    def _input(self, features, start_grid):
+        return nn.Sequential(
+            DownSample(self.n_c, features, start_grid),
+            nn.LeakyReLU(True),
+        )
 
-    def _block(self, in_c, out_c, kernel_size, stride, padding, leak_f=0.2):
-        return [
-            (f"down_{out_c}", nn.Conv2d(in_c, out_c, kernel_size, stride, padding, bias=False)),
-            (f"in_{out_c}", nn.InstanceNorm2d(out_c, affine=True)),
-            (f"lrelu_{out_c}", nn.LeakyReLU(leak_f, True)),
-        ]
+    def _inner_block(self, in_c, out_c, factor):
+        return nn.Sequential(
+            DownSample(in_c, out_c, factor, bias=False),
+            nn.InstanceNorm2d(out_c, affine=True),
+            nn.LeakyReLU(True),
+        )
+
+    def _output(self, features, factor):
+        return nn.Sequential(
+            nn.Conv2d(features, 1, factor),
+        )
 
     def forward(self, input):
         if input.is_cuda and self.n_gpu > 1:
@@ -98,20 +132,15 @@ class Discriminator(nn.Module):
             output = self.main(input)
         return output.view(-1, 1).squeeze(1)
 
-def _n_inner_blocks(image_size):
-    return int(math.log2(image_size)) - 3
-
-def _init_weights(model):
-    for m in model.modules():
-        if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
-            nn.init.normal_(m.weight.data, 0.0, 0.02)
-
 def test(batch_size=16, latent_size=100, img_size=64, channels=3):
     device = torch.device("cpu")
     z = torch.randn(batch_size, latent_size, 1, 1).to(device)
     x = torch.randn(batch_size, channels, img_size, img_size).to(device)
-    GEN = Generator(img_size, channels, latent_size, features=8)
-    DISC = Discriminator(img_size, channels, features=8)
+    gen_grids = [1, 4, 32, 256]
+    disc_grids = gen_grids[::-1]
+
+    GEN = Generator(gen_grids, channels, latent_size, features=512)
+    DISC = Discriminator(disc_grids, channels, features=64)
 
     print(GEN)
     print(DISC)
@@ -123,3 +152,6 @@ def test(batch_size=16, latent_size=100, img_size=64, channels=3):
 
     d_x = DISC(x).to(device)
     print("disc shape", d_x.shape)
+
+if __name__ == "__main__":
+    test()

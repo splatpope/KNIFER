@@ -5,7 +5,7 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from . import DCGANTrainer, WGAN_GPTrainer
-from . import DCGANTrainer_256_3
+from . import DCGANTrainer_256_3, WGAN_GPTrainer_256_3
 
 #TODO : allow for setting number of features for models
 # currently equal to biggest grid size
@@ -17,6 +17,7 @@ KNIFER_ARCHS = {
     "DCGAN": DCGANTrainer,
     "DCGAN_256_3": DCGANTrainer_256_3,
     "WGAN_GP": WGAN_GPTrainer,
+    "WGAN_GP_256_3": WGAN_GPTrainer_256_3,
 }
 
 ## helper class to handle launching epochs, checkpointing, visualization
@@ -63,7 +64,8 @@ class TrainingManager():
         if not self.trainer:
             print("Trainer initialization failed.")
 
-
+        self._log(self.trainer.GEN)
+        self._log(self.trainer.DISC)
         self.fixed = self.trainer.get_fixed()
 
     def proceed(self, data, batch_id):

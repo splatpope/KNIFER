@@ -124,7 +124,7 @@ class NewModelWindow(tk.Toplevel):
         self.title("New Model")
 
         self.trainers_box = ComboboxL(master=self, label="Architecture",
-            values=("DCGAN", "WGAN_GP", "DCGAN_256_3"),
+            values=("DCGAN", "WGAN_GP", "DCGAN_256_3", "WGAN_GP_256_3"),
         )
         self.trainers_box.combobox.current(0)
         self.trainers_box.combobox.configure(state="readonly")

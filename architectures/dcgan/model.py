@@ -2,43 +2,22 @@ import math
 from typing import OrderedDict
 import torch
 import torch.nn as nn
-from ..common import UpSample, DownSample
+from ..common import UpSample, DownSample, validate_grids, layers
 
 def _init_weights(model):
     for m in model.modules():
         if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
             nn.init.normal_(m.weight.data, 0.0, 0.02)
 
-## A list of integer grid sizes is valid if they are all powers of 2 and are monotonically arranged
-def _validate_grids(grids):
-    assert(isinstance(grids, list))
-    assert(all([isinstance(g, int) for g in grids]))
-    if any([not math.log2(g).is_integer() for g in grids]):
-        return False
-    if grids == sorted(grids) or grids == sorted(grids, reverse=True):
-        return True
-    return False
-
-## Compute grid transitions to get layer parameters
-def _layers(grids):
-    transitions = []
-    if grids[0] < grids[1]: # upscaling
-        for i in range(len(grids)-1):
-            transitions.append(int(grids[i+1]/grids[i]))
-    else: # downscaling
-        for i in range(len(grids)-1):
-            transitions.append(int(grids[i]/grids[i+1]))
-    return transitions
-
 class Generator(nn.Module):
     def __init__(self, grids, out_channels, latent_size, n_gpu=1, features=None, feature_scales=None):
         super(Generator, self).__init__()
         
-        _validate_grids(grids)
+        validate_grids(grids)
         assert(grids[0] == 1)   ## input must be 1-D
         if not features:    ## output_img size by default
-            features = grids[-1] * 2**(len(grids)-1)
-        upscales = _layers(grids)
+            features = grids[-1] * 2**(len(grids)-3)
+        upscales = layers(grids)
         if not feature_scales:  ## divide by 2 each step by default
             feature_scales = [2**-i for i in range(len(upscales)-1)]
 
@@ -46,6 +25,7 @@ class Generator(nn.Module):
         self.n_c = out_channels
         self.n_z = latent_size
         self.n_gpu = n_gpu
+
         ## Create input layer
         blocks = [("input", self._input(self.n_f, upscales[0]))]
         ## Create inner layers
@@ -98,11 +78,11 @@ class Discriminator(nn.Module):
     def __init__(self, grids, channels, leak_f=0.2, n_gpu=1, features=None, feature_scales=None):
         super(Discriminator, self).__init__()
 
-        _validate_grids(grids)
+        validate_grids(grids)
         assert(grids[-1] == 1)  ## output must be 1-D
         if not features:
             features = grids[0]
-        downscales = _layers(grids)
+        downscales = layers(grids)
         if not feature_scales:  ## multiply by 2 each step by default
             feature_scales = [2**i for i in range(len(downscales)-1)]
 
