@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, StringVar
 from tkinter import messagebox as MSG
 import tkinter.filedialog as tkfd
-from architectures.common import TrainingManager
+from architectures.manager import TrainingManager
 from .widgets import ButtonL, ComboboxL, MiscParameterFrame, IntSpinboxL, Pow2SpinboxL
 
 KNIFER_DEBUG = True
