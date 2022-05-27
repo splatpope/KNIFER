@@ -3,59 +3,61 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from .model import Generator, Discriminator
+from ..common import check_required_params, grids_from_params_or_default
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Trainer():
     def __init__(self, dataset, params: dict):
-        try:
-            self.batch_size = params["batch_size"]
-            self.lr = params["learning_rate"]
-            self.z_size = params["latent_size"]
-            self.b1 = params["b1"]
-            self.b2 = params["b2"]
-        except KeyError:
-            raise
+        check_required_params(self, params)
+        self.batch_size = params["batch_size"]
+        self.latent_size = params["latent_size"]
+        self.learning_rate = params["learning_rate"]
+        self.b1 = params["b1"]
+        self.b2 = params["b2"]
 
-        betas = (self.b1, self.b2)
-        
         sample = dataset[0][0]
-        self.img_size = sample.shape[2]
-        self.channels = sample.shape[0]
 
-        if not "grids_g" in params:
-            grids_g = [1]
-            i = 4
-            while i <= self.img_size:
-                grids_g.append(i)
-                i *= 2
-        else:
-            grids_g = params["grids_g"]
-        print(grids_g)
-        assert(grids_g[-1] == self.img_size)
-        if not "grids_d" in params:
-            grids_d = grids_g[::-1]
-        else:
-            grids_d = params["grids_d"]
-        assert(grids_d[0] == self.img_size)
+        self.img_size = sample.shape[2]
+        if not "img_size" in params: ## should never happen but hey
+            params["img_size"] = self.img_size
+
+        self.channels = sample.shape[0]
+        if not "img_channels" in params:
+            params["img_channels"] = self.channels
+
+        grids_from_params_or_default(params)
 
         self.data = DataLoader(dataset, self.batch_size, shuffle=True)
 
-        self.GEN = Generator(grids_g, self.channels, self.z_size)
-        self.DISC = Discriminator(grids_d, self.channels)
+        #self.state = "ready"
+    
+    def build(self, params):
+        self.GEN = Generator(params)
+        self.DISC = Discriminator(params)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 
-        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.lr, betas=betas)
-        self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.lr, betas=betas)
+        betas = (self.b1, self.b2)
+
+        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.learning_rate, betas=betas)
+        self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.learning_rate, betas=betas)
         self.criterion = nn.BCELoss()
 
-        self.state = "ready"
-
+    @classmethod
+    def get_required_params(cls):
+        return [
+            "batch_size",
+            "latent_size",
+            "learning_rate",
+            "b1",
+            "b2",
+        ]
+    
     def process_batch(self, value, labels):
         x = value.to(DEVICE)
         ## Get a batch of noise and run it through G to get a fake batch
-        z = torch.randn(self.batch_size, self.z_size, 1, 1).to(DEVICE)
+        z = torch.randn(self.batch_size, self.latent_size, 1, 1).to(DEVICE)
         g_z = self.GEN(z)
         ## Run the real batch through D and compute D's real loss
         d_x = self.DISC(x)
@@ -77,7 +79,7 @@ class Trainer():
         self.opt_gen.step()
 
     def get_fixed(self):
-        return torch.randn(self.batch_size, self.z_size, 1, 1).to(DEVICE)
+        return torch.randn(self.batch_size, self.latent_size, 1, 1).to(DEVICE)
 
     def serialize(self):
         return {

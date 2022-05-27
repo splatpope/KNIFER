@@ -3,46 +3,16 @@ from typing import OrderedDict
 import torch
 import torch.nn as nn
 from ..common import UpSample, DownSample, validate_grids, layers
+import architectures.dcgan.model as DCGAN
 
 def _init_weights(model):
     for m in model.modules():
         if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d, nn.InstanceNorm2d)):
             nn.init.normal_(m.weight.data, 0.0, 0.02)
 
-class Generator(nn.Module):
-    def __init__(self, grids, out_channels, latent_size, n_gpu=1, features=None, feature_scales=None):
-        super(Generator, self).__init__()
-        
-        validate_grids(grids)
-        assert(grids[0] == 1)   ## input must be 1-D
-        if not features:    ## output img size * n inner blocks by default
-            features = grids[-1] * 2**(len(grids)-3)
-        upscales = layers(grids)
-        if not feature_scales:  ## divide by 2 each step by default
-            feature_scales = [2**-i for i in range(len(upscales)-1)]
-
-        self.n_f = features
-        self.n_c = out_channels
-        self.n_z = latent_size
-        self.n_gpu = n_gpu
-        
-        ## Create input layer
-        blocks = [("input", self._input(self.n_f, upscales[0]))]
-        ## Create inner layers
-        for i, factor in enumerate(upscales[1:-1]):
-            f_in = self.n_f * feature_scales[i]
-            f_out = self.n_f * feature_scales[i+1]
-            blocks.append(
-                (f"up_{i}", self._inner_block(int(f_in), int(f_out), factor))
-            )
-        ## Create output layer
-        last_f = self.n_f * feature_scales[-1]
-        blocks.append(
-            ("output", self._output(int(last_f), upscales[-1]))
-        )
-        ## Compose
-        self.main = nn.Sequential(OrderedDict(blocks))
-
+class Generator(DCGAN.Generator):
+    def __init__(self, params, n_gpu=1, features=None, feature_scales=None):
+        super(Generator, self).__init__(params, n_gpu, features, feature_scales)
         _init_weights(self)
 
     def _input(self, features, start_grid):
@@ -65,46 +35,9 @@ class Generator(nn.Module):
             nn.Tanh(),
         )
 
-    def forward(self, input):
-        if input.is_cuda and self.n_gpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.n_gpu))
-        else:
-            output = self.main(input)
-        return output
-
-class Discriminator(nn.Module):
-    def __init__(self, grids, channels, leak_f=0.2, n_gpu=1, features=None, feature_scales=None):
-        super(Discriminator, self).__init__()
-
-        validate_grids(grids)
-        assert(grids[-1] == 1)  ## output must be 1-D
-        if not features:
-            features = grids[0]
-        downscales = layers(grids)
-        if not feature_scales:  ## multiply by 2 each step by default
-            feature_scales = [2**i for i in range(len(downscales)-1)]
-
-        self.n_f = features
-        self.n_c = channels
-        self.leak_f = leak_f
-        self.n_gpu = n_gpu
-        ## Create input layer
-        blocks = [("input", self._input(self.n_f, downscales[0]))]
-        ## Create inner layers
-        for i, factor in enumerate(downscales[1:-1]):
-            f_in = self.n_f * feature_scales[i]
-            f_out = self.n_f * feature_scales[i+1]
-            blocks.append(
-                (f"down_{i}", self._inner_block(int(f_in), int(f_out), factor))
-            )
-        ## Create output layer
-        last_f = self.n_f * feature_scales[-1]
-        blocks.append(
-            ("output", self._output(int(last_f), downscales[-1]))
-        )
-        ## Compose
-        self.main = nn.Sequential(OrderedDict(blocks))
-
+class Discriminator(DCGAN.Discriminator):
+    def __init__(self, params, leak_f=0.2, n_gpu=1, features=None, feature_scales=None):
+        super(Discriminator, self).__init__(params, leak_f, n_gpu, features, feature_scales)
         _init_weights(self)
 
     def _input(self, features, start_grid):
@@ -125,13 +58,7 @@ class Discriminator(nn.Module):
             nn.Conv2d(features, 1, factor),
         )
 
-    def forward(self, input):
-        if input.is_cuda and self.n_gpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.n_gpu))
-        else:
-            output = self.main(input)
-        return output.view(-1, 1).squeeze(1)
-
+#TODO : OUTDATED
 def test(batch_size=16, latent_size=100, img_size=64, channels=3):
     device = torch.device("cpu")
     z = torch.randn(batch_size, latent_size, 1, 1).to(device)

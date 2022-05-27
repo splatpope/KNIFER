@@ -2,7 +2,7 @@ import math
 from typing import OrderedDict
 import torch
 import torch.nn as nn
-from ..common import UpSample, DownSample, validate_grids, layers
+from ..common import UpSample, DownSample, validate_grids, layers, check_required_params
 
 def _init_weights(model):
     for m in model.modules():
@@ -10,10 +10,11 @@ def _init_weights(model):
             nn.init.normal_(m.weight.data, 0.0, 0.02)
 
 class Generator(nn.Module):
-    def __init__(self, grids, out_channels, latent_size, n_gpu=1, features=None, feature_scales=None):
+    def __init__(self, params, n_gpu=1, features=None, feature_scales=None):
         super(Generator, self).__init__()
+        check_required_params(self, params)
         
-        validate_grids(grids)
+        grids = params["grids_g"]
         assert(grids[0] == 1)   ## input must be 1-D
         if not features:    ## output_img size by default
             features = grids[-1] * 2**(len(grids)-3)
@@ -22,28 +23,42 @@ class Generator(nn.Module):
             feature_scales = [2**-i for i in range(len(upscales)-1)]
 
         self.n_f = features
-        self.n_c = out_channels
-        self.n_z = latent_size
+        self.n_c = params["img_channels"]
+        self.n_z = params["latent_size"]
         self.n_gpu = n_gpu
 
         ## Create input layer
-        blocks = [("input", self._input(self.n_f, upscales[0]))]
+        #blocks = [("input", self._input(self.n_f, upscales[0]))]
+        self.in_layer = self._input(self.n_f, upscales[0])
+        self.mid_layers = []
         ## Create inner layers
         for i, factor in enumerate(upscales[1:-1]):
             f_in = self.n_f * feature_scales[i]
             f_out = self.n_f * feature_scales[i+1]
-            blocks.append(
-                (f"up_{i}", self._inner_block(int(f_in), int(f_out), factor))
+
+            #blocks.append(
+            #    (f"up_{i}", self._inner_block(int(f_in), int(f_out), factor))
+            #)
+            self.mid_layers.append(
+                self._inner_block(int(f_in), int(f_out), factor)
             )
+        self.mid_layers = nn.ModuleList(self.mid_layers)
         ## Create output layer
         last_f = self.n_f * feature_scales[-1]
-        blocks.append(
-            ("output", self._output(int(last_f), upscales[-1]))
-        )
+        #blocks.append(
+        #    ("output", self._output(int(last_f), upscales[-1]))
+        #)
+        self.out_layer = self._output(int(last_f), upscales[-1])
         ## Compose
-        self.main = nn.Sequential(OrderedDict(blocks))
+        #self.main = nn.Sequential(OrderedDict(blocks))
 
         _init_weights(self)
+
+    def main(self, input):
+        out = self.in_layer(input)
+        for l in self.mid_layers:
+            out = l(out)
+        return self.out_layer(out)
 
     def _input(self, features, start_grid):
         return nn.Sequential(
@@ -68,17 +83,26 @@ class Generator(nn.Module):
     def forward(self, input):
         if not self.main:
             raise ValueError
-        if input.is_cuda and self.n_gpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.n_gpu))
+        #if input.is_cuda and self.n_gpu > 1:
+        #    output = nn.parallel.data_parallel(self.main, input, range(self.n_gpu))
         else:
             output = self.main(input)
         return output
 
-class Discriminator(nn.Module):
-    def __init__(self, grids, channels, leak_f=0.2, n_gpu=1, features=None, feature_scales=None):
-        super(Discriminator, self).__init__()
+    @classmethod
+    def get_required_params(cls):
+        return [
+            "grids_g",
+            "img_channels",
+            "latent_size",
+        ]
 
-        validate_grids(grids)
+class Discriminator(nn.Module):
+    def __init__(self, params, leak_f=0.2, n_gpu=1, features=None, feature_scales=None):
+        super(Discriminator, self).__init__()
+        check_required_params(self, params)
+
+        grids = params["grids_d"]
         assert(grids[-1] == 1)  ## output must be 1-D
         if not features:
             features = grids[0]
@@ -87,27 +111,38 @@ class Discriminator(nn.Module):
             feature_scales = [2**i for i in range(len(downscales)-1)]
 
         self.n_f = features
-        self.n_c = channels
+        self.n_c = params["img_channels"]
         self.leak_f = leak_f
         self.n_gpu = n_gpu
         ## Create input layer
-        blocks = [("input", self._input(self.n_f, downscales[0]))]
+        #blocks = [("input", self._input(self.n_f, downscales[0]))]
+        self.in_layer = self._input(self.n_f, downscales[0])
         ## Create inner layers
+        self.mid_layers = []
         for i, factor in enumerate(downscales[1:-1]):
             f_in = self.n_f * feature_scales[i]
             f_out = self.n_f * feature_scales[i+1]
-            blocks.append(
-                (f"down_{i}", self._inner_block(int(f_in), int(f_out), factor))
-            )
+            #blocks.append(
+            #    (f"down_{i}", self._inner_block(int(f_in), int(f_out), factor))
+            #)
+            self.mid_layers.append(self._inner_block(int(f_in), int(f_out), factor))
+        self.mid_layers = nn.ModuleList(self.mid_layers)
         ## Create output layer
         last_f = self.n_f * feature_scales[-1]
-        blocks.append(
-            ("output", self._output(int(last_f), downscales[-1]))
-        )
+        #blocks.append(
+        #    ("output", self._output(int(last_f), downscales[-1]))
+        #)
+        self.out_layer = self._output(int(last_f), downscales[-1])
         ## Compose
-        self.main = nn.Sequential(OrderedDict(blocks))
+        #self.main = nn.Sequential(OrderedDict(blocks))
 
         _init_weights(self)
+
+    def main(self, input):
+        out = self.in_layer(input)
+        for l in self.mid_layers:
+            out = l(out)
+        return self.out_layer(out)
 
     def _input(self, features, start_grid):
         return nn.Sequential(
@@ -131,12 +166,20 @@ class Discriminator(nn.Module):
     def forward(self, input):
         if not self.main:
             raise ValueError
-        if input.is_cuda and self.n_gpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.n_gpu))
+        #if input.is_cuda and self.n_gpu > 1:
+        #    output = nn.parallel.data_parallel(self.main, input, range(self.n_gpu))
         else:
             output = self.main(input)
         return output.view(-1, 1).squeeze(1)
 
+    @classmethod
+    def get_required_params(cls):
+        return [
+            "grids_d",
+            "img_channels",
+        ]
+
+#TODO : outdated
 def test(batch_size=16, latent_size=100, img_size=64, channels=3):
     device = torch.device("cpu")
     z = torch.randn(batch_size, latent_size, 1, 1).to(device)

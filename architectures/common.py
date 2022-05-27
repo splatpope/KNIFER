@@ -2,6 +2,51 @@ import math
 import torch
 import torch.nn as nn
 
+#### model utilities ####
+
+
+def check_required_params(o, params):
+    for p in o.get_required_params():
+        if p not in params:
+            raise KeyError(p) ## should be caught by whatever tries to instanciate o
+
+def grids_from_params_or_default(params: dict):
+        """Ensure that params contain layer size transitions for G and D. 
+        Generate meaningful defaults otherwise.
+
+        Args:
+            params (dict): model hyperparameters
+
+        Raises:
+            AttributeError: img_size needs to be known (or the params are malformed anyway)
+
+        Returns:
+            list, list : the layer size transitions
+        """
+        if "img_size" not in params:
+            raise AttributeError
+        img_size = params["img_size"]
+
+        if "grids_g" not in params:
+            grids_g = [1]
+            i = 4
+            while i <= img_size:
+                grids_g.append(i)
+                i *= 2
+            params["grids_g"] = grids_g
+        else:
+            validate_grids(params["grids_g"])
+
+        assert(params["grids_g"][-1] == img_size) # no weird stuff happened while building grids_g ?
+
+        if "grids_d" not in params:
+            grids_d = grids_g[::-1]
+            params["grids_d"] = grids_d
+        else:
+            validate_grids(params["grids_d"])
+
+        assert(params["grids_d"][0] == img_size) # ditto
+
 ## A list of integer grid sizes is valid if they are all powers of 2 and are monotonically arranged
 def validate_grids(grids):
     assert(isinstance(grids, list))

@@ -4,8 +4,17 @@ from torch.utils import data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
-from . import DCGANTrainer, WGAN_GPTrainer
-from . import DCGANTrainer_256_3, WGAN_GPTrainer_256_3
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    # If tqdm is not available, provide a mock version of it
+    def tqdm(x):
+        return x
+
+from architectures import DCGANTrainer, SAGANTrainer_32_4_2a, SAGANTrainer_32_4_2a_WGP, WGAN_GPTrainer
+from architectures import DCGANTrainerEZMnist
+from architectures import DCGANTrainer_256_3, WGAN_GPTrainer_256_3
 
 #TODO : allow for setting number of features for models
 # currently equal to biggest grid size
@@ -16,8 +25,11 @@ from . import DCGANTrainer_256_3, WGAN_GPTrainer_256_3
 KNIFER_ARCHS = {
     "DCGAN": DCGANTrainer,
     "DCGAN_256_3": DCGANTrainer_256_3,
+    "DCGAN_EZMNIST": DCGANTrainerEZMnist,
     "WGAN_GP": WGAN_GPTrainer,
     "WGAN_GP_256_3": WGAN_GPTrainer_256_3,
+    "SAGAN_TEST": SAGANTrainer_32_4_2a,
+    "SAGAN_TEST_WGP": SAGANTrainer_32_4_2a_WGP,
 }
 
 ## helper class to handle launching epochs, checkpointing, visualization
@@ -36,7 +48,7 @@ class TrainingManager():
     def set_dataset_folder(self, folder):
         self.dataset_folder = folder
 
-    def set_trainer(self, params):
+    def set_trainer(self, params, premade = None):
         self.trainer = None
         if (torch.cuda.is_available()): ## may or may not work
             torch.cuda.empty_cache()
@@ -46,28 +58,44 @@ class TrainingManager():
         arch = params["arch"]
         img_size = params["img_size"]
         ## TODO : allow for setting up transformations and augmentations
-        self.dataset = dset.ImageFolder(self.dataset_folder, transforms.Compose([
+        tr_combo = transforms.Compose([
             transforms.Resize(img_size),
             transforms.CenterCrop(img_size),
             transforms.ToTensor(),
             transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5)),
-        ]))
+        ])
+        if not premade:
+            self.dataset = dset.ImageFolder(self.dataset_folder, transform=tr_combo)
+        else:
+            assert isinstance(premade, data.Dataset)
+            self.dataset = premade
+
         try:
-            self.trainer = KNIFER_ARCHS[arch](self.dataset, params) 
+            arch_to_go = KNIFER_ARCHS[arch]
+        except KeyError as e:
+            print(f"Architecture {e.args[0]} not found. Please provide an architecture present in KNIFER_ARCHS.")
+
+        try:
+            self.trainer = arch_to_go(self.dataset, params) 
             ## may lead to unused params being passed
             ## who cares ?
+            self.trainer.build(params)
         except KeyError as e:
             print(f"Parameter {e.args[0]} required by {arch}.")
         except Exception:
+            ## something else happened, figure it out bro
             raise
 
         if not self.trainer:
             print("Trainer initialization failed.")
+            return
 
+        ## We are assuming that all arch trainers use the GEN and DISC names
         self._log(self.trainer.GEN)
         self._log(self.trainer.DISC)
         self.fixed = self.trainer.get_fixed()
 
+    # this function is only for usage with the GUI, which both need to be interruptible
     def proceed(self, data, batch_id):
         try:
             (batch, labels) = next(data)
@@ -80,6 +108,19 @@ class TrainingManager():
             self.epoch += 1
             return 0
 
+    # this function is more adapted to command line training
+    def simple_train_loop(self, n_epochs):
+        dataloader = self.trainer.data
+        start_epoch = self.epoch
+        for _ in range(n_epochs):
+            self.epoch += 1
+            self.batch = 0
+            self._log(f"Epoch {self.epoch}/{start_epoch + n_epochs}")
+            for batch, labels in tqdm(dataloader):
+                self.batch += 1
+                self.trainer.process_batch(batch, labels)
+            self.checkpoint = self.trainer.serialize()
+
     def synthetize_viz(self):
         with torch.no_grad():
             fixed_fakes = self.trainer.GEN(self.fixed).detach()
@@ -87,11 +128,12 @@ class TrainingManager():
             #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
             vutils.save_image(fixed_fakes, fp=f"./viz/{self.get_filestamp()}.png")
 
-    ## TODO : allow giving a path
     def save(self, dest=None):
         if not self.checkpoint:
             self._log("Nothing to save !")
             return False
+        if not self.dataset_folder:
+            self._log("Not using a custom dataset, treating as dry run, not saving !")
         state = {
             'dataset': self.dataset_folder,
             'model': self.checkpoint,
@@ -105,10 +147,15 @@ class TrainingManager():
         torch.save(state, path)
         return path
 
-    def load(self, path) -> int:
+# TODO : get inspired to allow loading the latest checkpoint from a particular arch
+    def load(self, path, premade=None) -> int:
         state = torch.load(path)
         self.set_dataset_folder(state['dataset'])
-        self.set_trainer(state['params'])
+        if not self.dataset_folder and not premade:
+            self._log("ERROR: checkpoint needs a premade dataset to be specified!")
+            return False
+        else:
+            self.set_trainer(state['params'], premade)
         self.trainer.deserialize(state['model'])
         self.epoch = state['epoch']
         self.batch = 0
