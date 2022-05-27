@@ -53,6 +53,7 @@ class TrainingManager():
         if (torch.cuda.is_available()): ## may or may not work
             torch.cuda.empty_cache()
         self.epoch = 0
+        self.kimg = 0
         self.batch = 0
         self.params = params
         arch = params["arch"]
@@ -109,8 +110,17 @@ class TrainingManager():
             return 0
 
     # this function is more adapted to command line training
-    def simple_train_loop(self, n_epochs):
+    def simple_train_loop(self, n_epochs=None, kimg=None):
+        if not n_epochs and not kimg:
+            raise ValueError("Please enter either a number of epochs or a number of kiloimages to train for.")
+        if n_epochs and kimg:
+            raise ValueError("Do not set both number of epochs and kiloimages to train for.")
+
         dataloader = self.trainer.data
+
+        if not n_epochs:
+            n_epochs = (kimg*1000)//len(self.dataset) + 1 ## hacky
+
         start_epoch = self.epoch
         for _ in range(n_epochs):
             self.epoch += 1
@@ -139,6 +149,7 @@ class TrainingManager():
             'model': self.checkpoint,
             'params': self.params,
             'epoch': self.epoch,
+            'kimg': self.kimg,
         }
         if not dest:
             dest = "./savestates/"
@@ -158,6 +169,7 @@ class TrainingManager():
             self.set_trainer(state['params'], premade)
         self.trainer.deserialize(state['model'])
         self.epoch = state['epoch']
+        self.kimg = state['kimg']
         self.batch = 0
         return self.batch
 
