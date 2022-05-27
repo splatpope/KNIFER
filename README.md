@@ -16,14 +16,7 @@ the folder you're passing should contain folders whose names are the classes of 
 * Call the "set_trainer" method on the manager, with the parameters dict as an argument.
 * Grab a batch from the trainer inside the manager, then provide it to the manager's "proceed" method, along with the batch's ID.
 
-Training loop example :
-```
-while(True):
-  if tm.batch == 0:
-    print(f"Training epoch {tm.epoch}")
-    data = iter(tm.trainer.data)
-  tm.batch = tm.proceed(data, tm.batch)
-```
+The TrainingManager class provides a simple training loop for CLI usage.
 
 For more insight, look at how the GUI uses the manager.
 
