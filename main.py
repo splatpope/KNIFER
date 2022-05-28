@@ -17,7 +17,7 @@ def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int, save_st
     for i in range(n):
         manager.simple_train_loop(n_epochs)
         if i % save_step == 0:
-            manager.save()
+            manager.save("./savestates/" + experiment)
         if i % viz_step == 0:
             manager.synthetize_viz()
 
