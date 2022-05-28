@@ -68,8 +68,8 @@ def test_sagan():
 
     img_folder = dset_path
     params = {
-        "arch": "SAGAN_TEST_WGP",
-        "img_size": 32,
+        "arch": "SAGAN_TEST_WGP_256_3",
+        "img_size": 256,
         "batch_size": 16,
         "latent_size": 100,
         "learning_rate": 0.0002,

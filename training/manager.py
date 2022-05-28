@@ -12,7 +12,7 @@ except ImportError:
     def tqdm(x):
         return x
 
-from architectures import DCGANTrainer, SAGANTrainer_32_4_2a, SAGANTrainer_32_4_2a_WGP, WGAN_GPTrainer
+from architectures import DCGANTrainer, SAGANTrainer_256_3_1a_WGP, SAGANTrainer_32_4_2a, SAGANTrainer_32_4_2a_WGP, WGAN_GPTrainer
 from architectures import DCGANTrainerEZMnist
 from architectures import DCGANTrainer_256_3, WGAN_GPTrainer_256_3
 
@@ -30,6 +30,7 @@ KNIFER_ARCHS = {
     "WGAN_GP_256_3": WGAN_GPTrainer_256_3,
     "SAGAN_TEST": SAGANTrainer_32_4_2a,
     "SAGAN_TEST_WGP": SAGANTrainer_32_4_2a_WGP,
+    "SAGAN_TEST_WGP_256_3": SAGANTrainer_256_3_1a_WGP,
 }
 
 ## helper class to handle launching epochs, checkpointing, visualization
@@ -176,5 +177,5 @@ class TrainingManager():
     def get_filestamp(self) -> str:
         arch = self.params["arch"]
         epoch = self.epoch
-        timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+        timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M')
         return f"{arch}_{timestamp}_{epoch}"

@@ -44,3 +44,11 @@ def SAGANTrainer_32_4_2a_4f(dset, params):
     params.update({
         
     })
+
+def SAGANTrainer_256_3_1a_WGP(dset, params):
+    params.update({
+        'grids_g': [1, 4, 32, 256],
+        'grids_d': [256, 32, 4, 1],
+        'attn_spots': [0],
+    })
+    return SAGANWGPTrainer(dset, params)
