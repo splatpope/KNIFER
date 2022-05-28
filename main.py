@@ -1,4 +1,6 @@
+import sys
 # TODO : command line utility to supersede the GUI
+# kinda done, just needs a parser really
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from torchvision.datasets import MNIST
@@ -6,6 +8,8 @@ from torchvision import transforms
 from training import TrainingManager
 
 from metrics import FID
+
+dset_path = sys.argv[1]
 
 def test_FID_MNIST(load=True):
     premade = MNIST("./mnist/", train=True, transform = transforms.Compose([
@@ -62,7 +66,7 @@ def test_FID_MNIST(load=True):
 
 def test_sagan():
 
-    img_folder = "~/Pictures/KNIVES_256_soft/"
+    img_folder = dset_path
     params = {
         "arch": "SAGAN_TEST_WGP",
         "img_size": 32,
@@ -81,7 +85,7 @@ def test_sagan():
 
 def test_dcgan():
 
-    img_folder = "~/Pictures/KNIVES_256_soft/"
+    img_folder = dset_path
     params = {
         "arch": "DCGAN",
         "grids_g": [1, 4, 8, 16, 32],
@@ -100,7 +104,7 @@ def test_dcgan():
 
 def test_wgangp():
     
-    img_folder = "~/Pictures/KNIVES_256_soft/"
+    img_folder = dset_path
     params = {
         "arch": "WGAN_GP",
         "grids_g": [1, 4, 8, 16, 32],
