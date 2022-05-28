@@ -72,9 +72,9 @@ def test_sagan():
         "img_size": 256,
         "batch_size": 16,
         "latent_size": 100,
-        "learning_rate": 0.0002,
+        "learning_rate": 0.0001,
         "b1": 0.5,
-        "b2": 0.999,
+        "b2": 0.9,
         "critic_iters": 5,
         "lambda_gp": 10,
     }
