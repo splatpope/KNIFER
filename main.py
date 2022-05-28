@@ -9,7 +9,17 @@ from training import TrainingManager
 
 from metrics import FID
 
+# until we get a real parser in
 dset_path = sys.argv[1]
+experiment = sys.argv[2]
+
+def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int, save_step: int = 1, viz_step:int = 1):
+    for i in range(n):
+        manager.simple_train_loop(n_epochs)
+        if i % save_step == 0:
+            manager.save()
+        if i % viz_step == 0:
+            manager.synthetize_viz()
 
 def test_FID_MNIST(load=True):
     premade = MNIST("./mnist/", train=True, transform = transforms.Compose([
@@ -73,7 +83,7 @@ def test_sagan():
         "batch_size": 16,
         "latent_size": 100,
         "learning_rate": 0.0001,
-        "b1": 0.5,
+        "b1": 0.0,
         "b2": 0.9,
         "critic_iters": 5,
         "lambda_gp": 10,

@@ -134,7 +134,7 @@ class TrainingManager():
 
     def synthetize_viz(self):
         with torch.no_grad():
-            fixed_fakes = self.trainer.GEN(self.fixed).detach()
+            fixed_fakes = self.trainer.GEN(self.fixed)
             #grid = vutils.make_grid(fixed_fakes, normalize=True)
             #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
             vutils.save_image(fixed_fakes, fp=f"./viz/{self.get_filestamp()}.png")
