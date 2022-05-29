@@ -1,6 +1,7 @@
 import math
 import torch
 import torch.nn as nn
+from torch_utils.spectral import SpectralNorm
 
 #### model utilities ####
 
@@ -68,14 +69,14 @@ def layers(grids):
             transitions.append(int(grids[i]/grids[i+1]))
     return transitions
 
-def ReSample(in_c, out_c, factor, bias=True, dir="up"):
+def ReSample(in_c, out_c, factor, bias=True, dir="up", spectral_norm = False):
     assert(factor >= 2)
     assert(math.log2(factor).is_integer())
     k = int(2*factor)
     s = int(factor)
     p = int(factor/2)
     if dir == "up":
-        return nn.ConvTranspose2d(
+        op = nn.ConvTranspose2d(
             in_channels=in_c, 
             out_channels=out_c, 
             kernel_size=k, 
@@ -84,7 +85,7 @@ def ReSample(in_c, out_c, factor, bias=True, dir="up"):
             bias=bias
         )
     elif dir == "down":
-        return nn.Conv2d(
+        op = nn.Conv2d(
             in_channels=in_c, 
             out_channels=out_c, 
             kernel_size=k, 
@@ -92,9 +93,12 @@ def ReSample(in_c, out_c, factor, bias=True, dir="up"):
             padding=p, 
             bias=bias
         )
+    if spectral_norm:
+        op = SpectralNorm(op)
+    return op
 
-def UpSample(in_c, out_c, factor, bias=True):
-    return ReSample(in_c, out_c, factor, bias, dir="up")
+def UpSample(in_c, out_c, factor, bias=True, spectral_norm=False):
+    return ReSample(in_c, out_c, factor, bias, dir="up", spectral_norm=spectral_norm)
 
-def DownSample(in_c, out_c, factor, bias=True):
-    return ReSample(in_c, out_c, factor, bias, dir="down")
+def DownSample(in_c, out_c, factor, bias=True, spectral_norm=False):
+    return ReSample(in_c, out_c, factor, bias, dir="down", spectral_norm=spectral_norm)
