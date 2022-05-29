@@ -1,4 +1,8 @@
 import datetime
+import glob
+import os
+from pathlib import Path
+
 import torch
 from torch.utils import data
 import torchvision.datasets as dset
@@ -154,13 +158,17 @@ class TrainingManager():
         }
         if not dest:
             dest = "./savestates/"
-        path = f"{dest}{self.get_filestamp()}.pth"
-        
+        dest = Path(dest)
+        filename = self.get_filestamp() + ".pth"
+        path = dest / filename
         torch.save(state, path)
         return path
 
-# TODO : get inspired to allow loading the latest checkpoint from a particular arch
     def load(self, path, premade=None) -> int:
+        if os.path.isdir(path): ## specify a directory to get the latest checkpoint inside
+            files = glob.glob(path)
+            path = max(files, key=os.path.getmtime)
+        ## or just a file to load it directly
         state = torch.load(path)
         self.set_dataset_folder(state['dataset'])
         if not self.dataset_folder and not premade:
