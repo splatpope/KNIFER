@@ -14,7 +14,7 @@ dset_path = sys.argv[1]
 experiment = sys.argv[2]
 
 def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int, save_step: int = 1, viz_step:int = 1):
-    for i in range(n):
+    for i in range(n) + 1:
         manager.simple_train_loop(n_epochs)
         if i % save_step == 0:
             manager.save("./savestates/" + experiment)
