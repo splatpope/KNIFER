@@ -60,7 +60,7 @@ class Trainer():
 
     def parallelize(self):
         if torch.cuda.is_available():
-            if torch.cuda.device_count > 1:
+            if torch.cuda.device_count() > 1:
                 self.GEN = nn.DataParallel(self.GEN).to(DEVICE)
                 self.DISC = nn.DataParallel(self.DISC).to(DEVICE)
 
