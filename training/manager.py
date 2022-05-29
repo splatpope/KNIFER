@@ -44,11 +44,13 @@ KNIFER_ARCHS = {
 ## helper class to handle launching epochs, checkpointing, visualization
 ## meant to be used by the GUI, but can be used alone
 class TrainingManager():
-    def __init__(self, debug=False):
+    def __init__(self, debug=False, parallel=False):
         self.epoch = 0
         self.checkpoint = None
         self.dataset_folder = None
         self.debug = debug
+
+        self.parallel = parallel
 
     def _log(self, *args, **kwargs):
         if self.debug:
@@ -90,6 +92,8 @@ class TrainingManager():
             ## may lead to unused params being passed
             ## who cares ?
             self.trainer.build(params)
+            if self.parallel:
+                self.trainer.parallelize()
         except KeyError as e:
             print(f"Parameter {e.args[0]} required by {arch}.")
         except Exception:

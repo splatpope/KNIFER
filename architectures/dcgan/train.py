@@ -58,6 +58,12 @@ class Trainer():
         self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.learning_rate, betas=betas)
         self.criterion = nn.BCELoss()
 
+    def parallelize(self):
+        if torch.cuda.is_available():
+            if torch.cuda.device_count > 1:
+                self.GEN = nn.DataParallel(self.GEN).to(DEVICE)
+                self.DISC = nn.DataParallel(self.DISC).to(DEVICE)
+
     @classmethod
     def get_required_params(cls):
         return [

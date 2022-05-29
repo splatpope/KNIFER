@@ -96,6 +96,26 @@ def test_sagan(nw=0):
     manager.set_trainer(params, num_workers=nw)
     return manager
 
+def test_sagan_para(nw=0):
+
+    img_folder = dset_path
+    params = {
+        "arch": "SAGAN_TEST_WGP_256_3",
+        "img_size": 256,
+        "batch_size": 32,
+        "latent_size": 100,
+        "learning_rate": 0.0001,
+        "b1": 0.0,
+        "b2": 0.9,
+        "critic_iters": 5,
+        "lambda_gp": 10,
+        "features": 128,
+    }
+    manager = TrainingManager(debug=True, parallel=True)
+    manager.set_dataset_folder(img_folder)
+    manager.set_trainer(params, num_workers=nw)
+    return manager
+
 def test_sagan_32(nw=0):
 
     img_folder = dset_path
