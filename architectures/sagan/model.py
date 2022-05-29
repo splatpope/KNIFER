@@ -47,7 +47,7 @@ class Self_Attn(nn.Module):
 # which tell where to place attn layers AFTER the corresponding mid layer
 class Generator(DCGAN.Generator):
     def __init__(self, params, n_gpu=1, features=None, feature_scales=None):
-        super(Generator, self).__init__(params, n_gpu, features, feature_scales)
+        super(Generator, self).__init__(params, n_gpu=n_gpu, features=features, feature_scales=feature_scales)
         for a in params["attn_spots"]:
             assert a < len(self.mid_layers), "Not enough mid layers for the chosen attention layer spot."
         self.attn_spots = params["attn_spots"]
@@ -92,8 +92,8 @@ class Generator(DCGAN.Generator):
         ]
 
 class Discriminator(DCGAN.Discriminator):
-    def __init__(self, params, n_gpu=1, features=None, feature_scales=None):
-        super(Discriminator, self).__init__(params, n_gpu, features, feature_scales)
+    def __init__(self, params, leak_f, n_gpu=1, features=None, feature_scales=None):
+        super(Discriminator, self).__init__(params, leak_f=leak_f, n_gpu=n_gpu, features=features, feature_scales=feature_scales)
         for a in params["attn_spots"]:
             assert a < len(self.mid_layers), "Not enough mid layers for the chosen attention layer spot."
         self.attn_spots = params["attn_spots"]

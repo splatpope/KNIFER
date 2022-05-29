@@ -7,7 +7,7 @@ import architectures.dcgan.model as DCGAN
 
 class Generator(DCGAN.Generator):
     def __init__(self, params, n_gpu=1, features=None, feature_scales=None):
-        super(Generator, self).__init__(params, n_gpu, features, feature_scales)
+        super(Generator, self).__init__(params, n_gpu=n_gpu, features=features, feature_scales=feature_scales)
 
     def _input(self, features, start_grid):
         return nn.Sequential(
@@ -31,7 +31,7 @@ class Generator(DCGAN.Generator):
 
 class Discriminator(DCGAN.Discriminator):
     def __init__(self, params, leak_f=0.2, n_gpu=1, features=None, feature_scales=None):
-        super(Discriminator, self).__init__(params, leak_f, n_gpu, features, feature_scales)
+        super(Discriminator, self).__init__(params, leak_f=leak_f, n_gpu=n_gpu, features=features, feature_scales=feature_scales)
 
     def _input(self, features, start_grid):
         return nn.Sequential(

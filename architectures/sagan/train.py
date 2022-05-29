@@ -48,7 +48,9 @@ class WGPTrainer(WGAN_GPTrainer):
 
     def build(self, params):
         self.GEN = Generator(params, features=self.features)
+        _init_weights(self.GEN)
         self.DISC = Discriminator(params, features=self.features)
+        _init_weights(self.DISC)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 
