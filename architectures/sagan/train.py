@@ -11,6 +11,11 @@ from ..wgan_gp.util import gradient_penalty
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def _init_weights(model):
+    for m in model.modules():
+        if isinstance(m, (nn.BatchNorm2d)):
+            nn.init.normal_(m.weight.data, 0.0, 0.02)
+
 class Trainer(DCGANTrainer):
     def __init__(self, dataset, params: dict):
         check_required_params(self, params)
@@ -18,7 +23,9 @@ class Trainer(DCGANTrainer):
 
     def build(self, params):
         self.GEN = Generator(params)
+        _init_weights(self.GEN)
         self.DISC = Discriminator(params)
+        _init_weights(self.DISC)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 

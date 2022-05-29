@@ -4,11 +4,6 @@ import torch
 import torch.nn as nn
 from ..common import UpSample, DownSample, validate_grids, layers, check_required_params
 
-def _init_weights(model):
-    for m in model.modules():
-        if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
-            nn.init.normal_(m.weight.data, 0.0, 0.02)
-
 class Generator(nn.Module):
     def __init__(self, params, n_gpu=1, features=None, feature_scales=None):
         super(Generator, self).__init__()
@@ -51,8 +46,6 @@ class Generator(nn.Module):
         self.out_layer = self._output(int(last_f), upscales[-1])
         ## Compose
         #self.main = nn.Sequential(OrderedDict(blocks))
-
-        _init_weights(self)
 
     def main(self, input):
         out = self.in_layer(input)
@@ -135,8 +128,6 @@ class Discriminator(nn.Module):
         self.out_layer = self._output(int(last_f), downscales[-1])
         ## Compose
         #self.main = nn.Sequential(OrderedDict(blocks))
-
-        _init_weights(self)
 
     def main(self, input):
         out = self.in_layer(input)

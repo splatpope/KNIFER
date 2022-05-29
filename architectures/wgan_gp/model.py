@@ -5,15 +5,9 @@ import torch.nn as nn
 from ..common import UpSample, DownSample, validate_grids, layers
 import architectures.dcgan.model as DCGAN
 
-def _init_weights(model):
-    for m in model.modules():
-        if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d, nn.InstanceNorm2d)):
-            nn.init.normal_(m.weight.data, 0.0, 0.02)
-
 class Generator(DCGAN.Generator):
     def __init__(self, params, n_gpu=1, features=None, feature_scales=None):
         super(Generator, self).__init__(params, n_gpu, features, feature_scales)
-        _init_weights(self)
 
     def _input(self, features, start_grid):
         return nn.Sequential(
@@ -38,7 +32,6 @@ class Generator(DCGAN.Generator):
 class Discriminator(DCGAN.Discriminator):
     def __init__(self, params, leak_f=0.2, n_gpu=1, features=None, feature_scales=None):
         super(Discriminator, self).__init__(params, leak_f, n_gpu, features, feature_scales)
-        _init_weights(self)
 
     def _input(self, features, start_grid):
         return nn.Sequential(

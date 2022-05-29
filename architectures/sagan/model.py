@@ -8,12 +8,6 @@ from ..common import UpSample, DownSample
 import architectures.dcgan.model as DCGAN
 from torch_utils.spectral import SpectralNorm
 
-# TODO : check if we need to init self attn params the same way
-def _init_weights(model):
-    for m in model.modules():
-        if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
-            nn.init.normal_(m.weight.data, 0.0, 0.02)
-
 # from "official" SAGAN implementation
 class Self_Attn(nn.Module):
     """ Self attention Layer"""
@@ -60,7 +54,7 @@ class Generator(DCGAN.Generator):
         self.attn_layers = {}
         for attn in self.attn_spots:
             # we want the out channels of the conv2d module stored in a specific mid layer
-            self.attn_layers[str(attn)] = (Self_Attn(self.mid_layers[attn][0].out_channels, 'relu'))
+            self.attn_layers[str(attn)] = (Self_Attn(self.mid_layers[attn][0].module.out_channels, 'relu'))
         self.attn_layers = nn.ModuleDict(self.attn_layers)
 
     def _input(self, features, start_grid):
@@ -106,7 +100,7 @@ class Discriminator(DCGAN.Discriminator):
         self.attn_layers = {}
         for attn in self.attn_spots:
             # we want the out channels of the conv2d module stored in a specific mid layer
-            self.attn_layers[str(attn)] = (Self_Attn(self.mid_layers[attn][0].out_channels, 'relu'))
+            self.attn_layers[str(attn)] = (Self_Attn(self.mid_layers[attn][0].module.out_channels, 'relu'))
         self.attn_layers = nn.ModuleDict(self.attn_layers)
     
     def main(self, input):
