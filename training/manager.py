@@ -16,6 +16,10 @@ except ImportError:
     def tqdm(x):
         return x
 
+def make_folder(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
 from architectures import DCGANTrainer, SAGANTrainer_256_3_1a_WGP, SAGANTrainer_32_4_2a, SAGANTrainer_32_4_2a_WGP, WGAN_GPTrainer
 from architectures import DCGANTrainerEZMnist
 from architectures import DCGANTrainer_256_3, WGAN_GPTrainer_256_3
@@ -149,6 +153,7 @@ class TrainingManager():
             fixed_fakes = self.trainer.GEN(self.fixed)
             #grid = vutils.make_grid(fixed_fakes, normalize=True)
             #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
+            make_folder(dest)
             vutils.save_image(fixed_fakes, fp=path)
 
     def save(self, dest=None):
@@ -169,6 +174,7 @@ class TrainingManager():
         dest = Path(dest)
         filename = self.get_filestamp() + ".pth"
         path = dest / filename
+        make_folder(dest)
         torch.save(state, path)
         return path
 

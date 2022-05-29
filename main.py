@@ -14,12 +14,14 @@ dset_path = sys.argv[1]
 experiment = sys.argv[2]
 
 def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int, save_step: int = 1, viz_step:int = 1):
-    for i in range(n) + 1:
+    saves_dest = "./savestates/" + experiment
+    viz_dest = "./viz/" + experiment
+    for i in range(n):
         manager.simple_train_loop(n_epochs)
-        if i % save_step == 0:
-            manager.save("./savestates/" + experiment)
-        if i % viz_step == 0:
-            manager.synthetize_viz()
+        if (i+1) % save_step == 0:
+            manager.save(saves_dest)
+        if (i+1) % viz_step == 0:
+            manager.synthetize_viz(viz_dest)
 
 def test_FID_MNIST(load=True):
     premade = MNIST("./mnist/", train=True, transform = transforms.Compose([
