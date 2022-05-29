@@ -23,9 +23,9 @@ class Trainer(DCGANTrainer):
         super(Trainer, self).__init__(dataset, params, num_workers)
 
     def build(self, params):
-        self.GEN = Generator(params)
+        self.GEN = Generator(params, features=self.features)
         _init_weights(self.GEN)
-        self.DISC = Discriminator(params)
+        self.DISC = Discriminator(params, features=self.features)
         _init_weights(self.DISC)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)

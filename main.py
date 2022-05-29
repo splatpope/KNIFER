@@ -89,6 +89,7 @@ def test_sagan(nw=0):
         "b2": 0.9,
         "critic_iters": 5,
         "lambda_gp": 10,
+        "features": 128,
     }
     manager = TrainingManager(debug=True)
     manager.set_dataset_folder(img_folder)

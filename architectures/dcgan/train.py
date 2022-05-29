@@ -21,6 +21,11 @@ class Trainer():
         self.b1 = params["b1"]
         self.b2 = params["b2"]
 
+        if "features" in params:
+            self.features = params["features"]
+        else:
+            self.features = None
+
         sample = dataset[0][0]
 
         self.img_size = sample.shape[2]
@@ -40,9 +45,9 @@ class Trainer():
         #self.state = "ready"
     
     def build(self, params):
-        self.GEN = Generator(params)
+        self.GEN = Generator(params, features=self.features)
         _init_weights(self.GEN)
-        self.DISC = Discriminator(params)
+        self.DISC = Discriminator(params, features=self.features)
         _init_weights(self.DISC)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
