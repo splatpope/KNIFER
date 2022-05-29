@@ -93,6 +93,25 @@ def test_sagan():
     manager.set_trainer(params)
     return manager
 
+def test_sagan_32():
+
+    img_folder = dset_path
+    params = {
+        "arch": "SAGAN_TEST_WGP",
+        "img_size": 32,
+        "batch_size": 16,
+        "latent_size": 100,
+        "learning_rate": 0.0001,
+        "b1": 0.0,
+        "b2": 0.9,
+        "critic_iters": 5,
+        "lambda_gp": 10,
+    }
+    manager = TrainingManager(debug=True)
+    manager.set_dataset_folder(img_folder)
+    manager.set_trainer(params)
+    return manager
+
 def test_dcgan():
 
     img_folder = dset_path
