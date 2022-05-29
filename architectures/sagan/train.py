@@ -32,7 +32,7 @@ class Trainer(DCGANTrainer):
         if DEVICE == torch.device("cuda"):
             if torch.cuda.device_count() > 1:
                 self.GEN = nn.DataParallel(self.GEN)
-                self.DISC = nn.DataParallel(self.GEN)
+                self.DISC = nn.DataParallel(self.DISC)
 
         betas = (self.b1, self.b2)
 
@@ -60,7 +60,7 @@ class WGPTrainer(WGAN_GPTrainer):
         if DEVICE == torch.device("cuda"):
             if torch.cuda.device_count() > 1:
                 self.GEN = nn.DataParallel(self.GEN)
-                self.DISC = nn.DataParallel(self.GEN)
+                self.DISC = nn.DataParallel(self.DISC)
 
         betas = (self.b1, self.b2)
 
