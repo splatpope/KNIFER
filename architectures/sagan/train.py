@@ -29,6 +29,11 @@ class Trainer(DCGANTrainer):
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 
+        if DEVICE == torch.device("cuda"):
+            if torch.cuda.device_count() > 1:
+                self.GEN = nn.DataParallel(self.GEN)
+                self.DISC = nn.DataParallel(self.GEN)
+
         betas = (self.b1, self.b2)
 
         self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.learning_rate, betas=betas)
@@ -51,6 +56,11 @@ class WGPTrainer(WGAN_GPTrainer):
         self.DISC = Discriminator(params)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
+
+        if DEVICE == torch.device("cuda"):
+            if torch.cuda.device_count() > 1:
+                self.GEN = nn.DataParallel(self.GEN)
+                self.DISC = nn.DataParallel(self.GEN)
 
         betas = (self.b1, self.b2)
 
