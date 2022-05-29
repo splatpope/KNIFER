@@ -3,7 +3,10 @@ from typing import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from ..common import UpSample, DownSample
 import architectures.dcgan.model as DCGAN
+from torch_utils.spectral import SpectralNorm
 
 # TODO : check if we need to init self attn params the same way
 def _init_weights(model):
@@ -59,6 +62,25 @@ class Generator(DCGAN.Generator):
             # we want the out channels of the conv2d module stored in a specific mid layer
             self.attn_layers[str(attn)] = (Self_Attn(self.mid_layers[attn][0].out_channels, 'relu'))
         self.attn_layers = nn.ModuleDict(self.attn_layers)
+
+    def _input(self, features, start_grid):
+        return nn.Sequential(
+            SpectralNorm(nn.ConvTranspose2d(self.n_z, features, start_grid, bias=False)),
+            nn.BatchNorm2d(features),
+            nn.ReLU(True),
+        )
+    def _inner_block(self, in_c, out_c, factor):
+        return nn.Sequential(
+            UpSample(in_c, out_c, factor, bias=False, spectral_norm=True),
+            nn.BatchNorm2d(out_c),
+            nn.ReLU(True),
+        )
+
+    def _output(self, features, factor):
+        return nn.Sequential(
+            UpSample(features, self.n_c, factor, spectral_norm=True),
+            nn.Tanh(),
+        )
     
     def main(self, input):
         #input = input.view(input.size(0), input.size(1), 1, 1)
@@ -95,6 +117,26 @@ class Discriminator(DCGAN.Discriminator):
             if idx in self.attn_spots:
                 out, _ = self.attn_layers[str(idx)](out)
         return self.out_layer(out)
+
+    def _input(self, features, start_grid):
+        return nn.Sequential(
+            DownSample(self.n_c, features, start_grid, spectral_norm=True),
+            nn.LeakyReLU(self.leak_f, True),
+        )
+
+    def _inner_block(self, in_c, out_c, factor):
+        return nn.Sequential(
+            DownSample(in_c, out_c, factor, bias=False, spectral_norm=True),
+            nn.BatchNorm2d(out_c),
+            nn.LeakyReLU(self.leak_f, True),
+        )
+
+    def _output(self, features, factor):
+        return nn.Sequential(
+            SpectralNorm(nn.Conv2d(features, 1, factor)),
+            nn.Sigmoid(),
+        )
+    
 
     @classmethod
     def get_required_params(cls):

@@ -43,14 +43,14 @@ class Discriminator(DCGAN.Discriminator):
     def _input(self, features, start_grid):
         return nn.Sequential(
             DownSample(self.n_c, features, start_grid),
-            nn.LeakyReLU(True),
+            nn.LeakyReLU(self.leak_f, True),
         )
 
     def _inner_block(self, in_c, out_c, factor):
         return nn.Sequential(
             DownSample(in_c, out_c, factor, bias=False),
             nn.InstanceNorm2d(out_c, affine=True),
-            nn.LeakyReLU(True),
+            nn.LeakyReLU(self.leak_f, True),
         )
 
     def _output(self, features, factor):
