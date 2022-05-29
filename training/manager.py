@@ -116,6 +116,8 @@ class TrainingManager():
 
     # this function is more adapted to command line training
     def simple_train_loop(self, n_epochs=None, kimg=None):
+        self.trainer.GEN.train()
+        self.trainer.DISC.train()
         if not n_epochs and not kimg:
             raise ValueError("Please enter either a number of epochs or a number of kiloimages to train for.")
         if n_epochs and kimg:
@@ -136,12 +138,18 @@ class TrainingManager():
                 self.trainer.process_batch(batch, labels)
             self.checkpoint = self.trainer.serialize()
 
-    def synthetize_viz(self):
+    def synthetize_viz(self, dest=None):
+        if not dest:
+            dest = "./viz/"
+        dest = Path(dest)
+        filename = self.get_filestamp() + ".png"
+        path = dest / filename
         with torch.no_grad():
+            self.trainer.GEN.eval()
             fixed_fakes = self.trainer.GEN(self.fixed)
             #grid = vutils.make_grid(fixed_fakes, normalize=True)
             #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
-            vutils.save_image(fixed_fakes, fp=f"./viz/{self.get_filestamp()}.png")
+            vutils.save_image(fixed_fakes, fp=path)
 
     def save(self, dest=None):
         if not self.checkpoint:
