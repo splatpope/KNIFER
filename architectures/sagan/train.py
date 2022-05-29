@@ -9,7 +9,7 @@ from ..dcgan.train import Trainer as DCGANTrainer
 from ..wgan_gp.train import Trainer as WGAN_GPTrainer
 from ..wgan_gp.util import gradient_penalty
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def _init_weights(model):
     for m in model.modules():
@@ -17,9 +17,9 @@ def _init_weights(model):
             nn.init.normal_(m.weight.data, 0.0, 0.02)
 
 class Trainer(DCGANTrainer):
-    def __init__(self, dataset, params: dict):
+    def __init__(self, dataset, params: dict, num_workers):
         check_required_params(self, params)
-        super(Trainer, self).__init__(dataset, params)
+        super(Trainer, self).__init__(dataset, params, num_workers)
 
     def build(self, params):
         self.GEN = Generator(params)
@@ -28,11 +28,6 @@ class Trainer(DCGANTrainer):
         _init_weights(self.DISC)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
-
-        if DEVICE == torch.device("cuda"):
-            if torch.cuda.device_count() > 1:
-                self.GEN = nn.DataParallel(self.GEN)
-                self.DISC = nn.DataParallel(self.DISC)
 
         betas = (self.b1, self.b2)
 
@@ -47,20 +42,15 @@ class Trainer(DCGANTrainer):
         ]
 
 class WGPTrainer(WGAN_GPTrainer):
-    def __init__(self, dataset, params: dict):
+    def __init__(self, dataset, params: dict, num_workers):
         check_required_params(self, params)
-        super(WGPTrainer, self).__init__(dataset, params)
+        super(WGPTrainer, self).__init__(dataset, params, num_workers)
 
     def build(self, params):
         self.GEN = Generator(params)
         self.DISC = Discriminator(params)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
-
-        if DEVICE == torch.device("cuda"):
-            if torch.cuda.device_count() > 1:
-                self.GEN = nn.DataParallel(self.GEN)
-                self.DISC = nn.DataParallel(self.DISC)
 
         betas = (self.b1, self.b2)
 

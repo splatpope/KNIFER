@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from .model import Generator, Discriminator
 from ..common import check_required_params, grids_from_params_or_default
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def _init_weights(model):
     for m in model.modules():
@@ -13,7 +13,7 @@ def _init_weights(model):
             nn.init.normal_(m.weight.data, 0.0, 0.02)
 
 class Trainer():
-    def __init__(self, dataset, params: dict):
+    def __init__(self, dataset, params: dict, num_workers=0):
         check_required_params(self, params)
         self.batch_size = params["batch_size"]
         self.latent_size = params["latent_size"]
@@ -33,7 +33,9 @@ class Trainer():
 
         grids_from_params_or_default(params)
 
-        self.data = DataLoader(dataset, self.batch_size, shuffle=True)
+        pin_memory = torch.cuda.is_available()
+
+        self.data = DataLoader(dataset, self.batch_size, shuffle=True, pin_memory=pin_memory, num_workers=num_workers)
 
         #self.state = "ready"
     
@@ -64,7 +66,7 @@ class Trainer():
     def process_batch(self, value, labels):
         x = value.to(DEVICE)
         ## Get a batch of noise and run it through G to get a fake batch
-        z = torch.randn(self.batch_size, self.latent_size, 1, 1).to(DEVICE)
+        z = torch.randn(self.batch_size, self.latent_size, 1, 1, device=DEVICE)
         g_z = self.GEN(z)
         ## Run the real batch through D and compute D's real loss
         d_x = self.DISC(x)
@@ -75,18 +77,18 @@ class Trainer():
         ## Get D's total loss
         loss_d = (loss_d_x + loss_d_g_z)/2
         ## Train D
-        self.DISC.zero_grad()
+        self.DISC.zero_grad(set_to_none=True)
         loss_d.backward()
         self.opt_disc.step()
         ## Rerun the fake batch through trained D, then train G
         output = self.DISC(g_z)
         loss_g = self.criterion(output, torch.ones_like(output))
-        self.GEN.zero_grad()
+        self.GEN.zero_grad(set_to_none=True)
         loss_g.backward()
         self.opt_gen.step()
 
     def get_fixed(self):
-        return torch.randn(self.batch_size, self.latent_size, 1, 1).to(DEVICE)
+        return torch.randn(self.batch_size, self.latent_size, 1, 1, device=DEVICE)
 
     def serialize(self):
         return {

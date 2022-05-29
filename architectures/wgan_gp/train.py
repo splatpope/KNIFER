@@ -8,7 +8,7 @@ from .model import Generator, Discriminator
 from ..dcgan.train import Trainer as DCGANTrainer
 from .util import gradient_penalty
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def _init_weights(model):
     for m in model.modules():
@@ -16,11 +16,11 @@ def _init_weights(model):
             nn.init.normal_(m.weight.data, 0.0, 0.02)
 
 class Trainer(DCGANTrainer):
-    def __init__(self, dataset, params):
+    def __init__(self, dataset, params, num_workers):
         check_required_params(self, params)
         self.critic_iters = params["critic_iters"]
         self.lambda_gp = params["lambda_gp"]
-        super(Trainer, self).__init__(dataset, params)
+        super(Trainer, self).__init__(dataset, params, num_workers)
 
     def build(self, params):
         self.GEN = Generator(params)
@@ -40,7 +40,7 @@ class Trainer(DCGANTrainer):
         x = value.to(DEVICE) # real
         for i in range(self.critic_iters):
             ## Get a batch of noise and run it through G to get a fake batch
-            z = torch.randn(value.shape[0], self.latent_size, 1, 1).to(DEVICE)
+            z = torch.randn(value.shape[0], self.latent_size, 1, 1, device=DEVICE)
             g_z = self.GEN(z) ## fake
 
             ## Run the real batch through D and compute D's real loss
@@ -55,14 +55,14 @@ class Trainer(DCGANTrainer):
                 -(torch.mean(d_x) - torch.mean(d_g_z)) + self.lambda_gp * gp
             )
 
-            self.DISC.zero_grad()
+            self.DISC.zero_grad(set_to_none=True)
             loss_critic.backward(retain_graph=True)
             self.opt_disc.step()
 
         ## Rerun the fake batch through trained D, then train G
         output = self.DISC(g_z) # critic fake post training
         loss_g = -torch.mean(output)
-        self.GEN.zero_grad()
+        self.GEN.zero_grad(set_to_none=True)
         loss_g.backward()
         self.opt_gen.step()
 

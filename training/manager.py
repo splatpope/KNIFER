@@ -57,7 +57,7 @@ class TrainingManager():
     def set_dataset_folder(self, folder):
         self.dataset_folder = folder
 
-    def set_trainer(self, params, premade = None):
+    def set_trainer(self, params, premade = None, num_workers=0):
         self.trainer = None
         if (torch.cuda.is_available()): ## may or may not work
             torch.cuda.empty_cache()
@@ -86,7 +86,7 @@ class TrainingManager():
             print(f"Architecture {e.args[0]} not found. Please provide an architecture present in KNIFER_ARCHS.")
 
         try:
-            self.trainer = arch_to_go(self.dataset, params) 
+            self.trainer = arch_to_go(self.dataset, params, num_workers) 
             ## may lead to unused params being passed
             ## who cares ?
             self.trainer.build(params)

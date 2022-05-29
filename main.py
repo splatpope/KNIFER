@@ -76,7 +76,7 @@ def test_FID_MNIST(load=True):
     # ???
     # profit
 
-def test_sagan():
+def test_sagan(nw=0):
 
     img_folder = dset_path
     params = {
@@ -92,10 +92,10 @@ def test_sagan():
     }
     manager = TrainingManager(debug=True)
     manager.set_dataset_folder(img_folder)
-    manager.set_trainer(params)
+    manager.set_trainer(params, num_workers=nw)
     return manager
 
-def test_sagan_32():
+def test_sagan_32(nw=0):
 
     img_folder = dset_path
     params = {
@@ -111,10 +111,10 @@ def test_sagan_32():
     }
     manager = TrainingManager(debug=True)
     manager.set_dataset_folder(img_folder)
-    manager.set_trainer(params)
+    manager.set_trainer(params, num_workers=nw)
     return manager
 
-def test_dcgan():
+def test_dcgan(nw=0):
 
     img_folder = dset_path
     params = {
@@ -130,10 +130,10 @@ def test_dcgan():
     }
     manager = TrainingManager(debug=True)
     manager.set_dataset_folder(img_folder)
-    manager.set_trainer(params)
+    manager.set_trainer(params, num_workers=nw)
     return manager
 
-def test_wgangp():
+def test_wgangp(nw=0):
     
     img_folder = dset_path
     params = {
@@ -151,5 +151,5 @@ def test_wgangp():
     }
     manager = TrainingManager(debug=True)
     manager.set_dataset_folder(img_folder)
-    manager.set_trainer(params)
+    manager.set_trainer(params, num_workers=nw)
     return manager
