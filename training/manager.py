@@ -22,7 +22,7 @@ def make_folder(path):
 
 from architectures import DCGANTrainer, SAGANTrainer_256_3_1a_WGP, SAGANTrainer_32_4_2a, SAGANTrainer_32_4_2a_WGP, WGAN_GPTrainer
 from architectures import DCGANTrainerEZMnist
-from architectures import DCGANTrainer_256_3, WGAN_GPTrainer_256_3
+from architectures import DCGANTrainer_256_3, WGAN_GPTrainer_256_3, SAGANTrainer_256_3_1a
 
 #TODO : allow for setting number of features for models
 # currently equal to biggest grid size
@@ -39,6 +39,7 @@ KNIFER_ARCHS = {
     "SAGAN_TEST": SAGANTrainer_32_4_2a,
     "SAGAN_TEST_WGP": SAGANTrainer_32_4_2a_WGP,
     "SAGAN_TEST_WGP_256_3": SAGANTrainer_256_3_1a_WGP,
+    "SAGAN_TEST_256_3": SAGANTrainer_256_3_1a,
 }
 
 ## helper class to handle launching epochs, checkpointing, visualization
