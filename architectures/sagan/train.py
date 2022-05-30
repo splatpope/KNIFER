@@ -43,10 +43,10 @@ class Trainer(DCGANTrainer):
         g_z = self.GEN(z)
         ## Run the real batch through D and compute D's real loss
         d_x = self.DISC(x)
-        loss_d_x = torch.nn.ReLU(1.0 - d_x).mean()
+        loss_d_x = torch.nn.ReLU()(1.0 - d_x).mean()
         ## Run the fake batch through D and compute D's fake loss
         d_g_z = self.DISC(g_z.detach())
-        loss_d_g_z = torch.nn.ReLU(1.0 + d_g_z).mean()
+        loss_d_g_z = torch.nn.ReLU()(1.0 + d_g_z).mean()
         ## Get D's total loss
         loss_d = loss_d_x + loss_d_g_z
         ## Train D
