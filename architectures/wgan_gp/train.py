@@ -22,13 +22,17 @@ class Trainer(DCGANTrainer):
         self.lambda_gp = params["lambda_gp"]
         super(Trainer, self).__init__(dataset, params, num_workers)
 
-    def build(self, params):
+    def build(self, params, parallel):
         self.GEN = Generator(params, features=self.features)
         _init_weights(self.GEN)
         self.DISC = Discriminator(params, features=self.features)
         _init_weights(self.DISC)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
+
+        if parallel:
+            self.GEN = nn.DataParallel(self.GEN)
+            self.DISC = nn.DataParallel(self.DISC)
 
         betas = (self.b1, self.b2)
 
