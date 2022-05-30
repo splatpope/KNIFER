@@ -57,6 +57,7 @@ class Trainer(DCGANTrainer):
         self.DISC.zero_grad(set_to_none=True)
         loss_d.backward()
         self.opt_disc.step()
+        
         ## Rerun the fake batch through trained D, then train G
         output = self.DISC(g_z)
         loss_g = -output.mean()
