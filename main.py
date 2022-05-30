@@ -154,6 +154,23 @@ def test_dcgan(nw=0):
     manager.set_trainer(params, num_workers=nw)
     return manager
 
+def test_dcgan_256(nw=0):
+
+    img_folder = dset_path
+    params = {
+        "arch": "DCGAN_256_3",
+        "img_size": 256,
+        "batch_size": 16,
+        "latent_size": 100,
+        "learning_rate": 0.0002,
+        "b1": 0.5,
+        "b2": 0.999,
+    }
+    manager = TrainingManager(debug=True)
+    manager.set_dataset_folder(img_folder)
+    manager.set_trainer(params, num_workers=nw)
+    return manager
+
 def test_wgangp(nw=0):
     
     img_folder = dset_path
