@@ -16,6 +16,9 @@ except ImportError:
     def tqdm(x):
         return x
 
+if torch.cuda.is_available():
+    torch.backends.cudnn.benchmark = True
+
 def make_folder(path):
     if not os.path.exists(path):
         os.makedirs(path)

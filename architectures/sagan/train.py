@@ -54,14 +54,14 @@ class Trainer(DCGANTrainer):
         ## Get D's total loss
         loss_d = loss_d_x + loss_d_g_z
         ## Train D
-        self.DISC.zero_grad(set_to_none=True)
+        self.DISC.zero_grad()
         loss_d.backward()
         self.opt_disc.step()
 
         ## Rerun the fake batch through trained D, then train G
         output = self.DISC(g_z)
         loss_g = -output.mean()
-        self.GEN.zero_grad(set_to_none=True)
+        self.GEN.zero_grad()
         loss_g.backward()
         self.opt_gen.step()
 
@@ -76,7 +76,7 @@ class WGPTrainer(WGAN_GPTrainer):
         check_required_params(self, params)
         super(WGPTrainer, self).__init__(dataset, params, num_workers)
 
-    def build(self, params, parallel):
+    def build(self, params, parallel=False):
         self.GEN = Generator(params, features=self.features)
         _init_weights(self.GEN)
         self.DISC = Discriminator(params, features=self.features)

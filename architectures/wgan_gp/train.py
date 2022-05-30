@@ -59,14 +59,14 @@ class Trainer(DCGANTrainer):
                 -(torch.mean(d_x) - torch.mean(d_g_z)) + self.lambda_gp * gp
             )
 
-            self.DISC.zero_grad(set_to_none=True)
+            self.DISC.zero_grad()
             loss_critic.backward(retain_graph=True)
             self.opt_disc.step()
 
         ## Rerun the fake batch through trained D, then train G
         output = self.DISC(g_z) # critic fake post training
         loss_g = -torch.mean(output)
-        self.GEN.zero_grad(set_to_none=True)
+        self.GEN.zero_grad()
         loss_g.backward()
         self.opt_gen.step()
 

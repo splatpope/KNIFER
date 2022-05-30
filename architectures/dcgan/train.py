@@ -92,13 +92,13 @@ class Trainer():
         ## Get D's total loss
         loss_d = (loss_d_x + loss_d_g_z)/2
         ## Train D
-        self.DISC.zero_grad(set_to_none=True)
+        self.DISC.zero_grad()
         loss_d.backward()
         self.opt_disc.step()
         ## Rerun the fake batch through trained D, then train G
         output = self.DISC(g_z)
         loss_g = self.criterion(output, torch.ones_like(output))
-        self.GEN.zero_grad(set_to_none=True)
+        self.GEN.zero_grad()
         loss_g.backward()
         self.opt_gen.step()
 
