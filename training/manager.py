@@ -92,9 +92,8 @@ class TrainingManager():
             self.trainer = arch_to_go(self.dataset, params, num_workers) 
             ## may lead to unused params being passed
             ## who cares ?
-            self.trainer.build(params)
-            if self.parallel:
-                self.trainer.parallelize()
+            self.trainer.build(params, self.parallel)
+            
         except KeyError as e:
             print(f"Parameter {e.args[0]} required by {arch}.")
         except Exception:

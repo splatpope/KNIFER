@@ -21,7 +21,7 @@ class Trainer(DCGANTrainer):
         check_required_params(self, params)
         super(Trainer, self).__init__(dataset, params, num_workers)
 
-    def build(self, params):
+    def build(self, params, parallel = False):
         self.GEN = Generator(params, features=self.features)
         _init_weights(self.GEN)
         self.DISC = Discriminator(params, features=self.features)
@@ -29,10 +29,14 @@ class Trainer(DCGANTrainer):
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 
+        if parallel:
+            self.GEN = nn.DataParallel(self.GEN)
+            self.DISC = nn.DataParallel(self.DISC)
+
         betas = (self.b1, self.b2)
 
-        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.learning_rate, betas=betas)
-        self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.learning_rate, betas=betas)
+        self.opt_gen = optim.Adam(filter(lambda p: p.requires_grad, self.GEN.parameters()), lr=self.learning_rate, betas=betas)
+        self.opt_disc = optim.Adam(filter(lambda p: p.requires_grad, self.DISC.parameters()), lr=self.learning_rate, betas=betas)
         self.criterion = nn.BCELoss()
 
 #uses hinge loss
