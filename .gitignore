@@ -132,3 +132,4 @@ dmypy.json
 NVIDIA_LICENSE.txt
 pytorch-fid/
 mnist/
+main_old
