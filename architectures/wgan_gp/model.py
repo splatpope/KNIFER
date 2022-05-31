@@ -50,28 +50,3 @@ class Discriminator(DCGAN.Discriminator):
         return nn.Sequential(
             nn.Conv2d(features, 1, factor),
         )
-
-#TODO : OUTDATED
-def test(batch_size=16, latent_size=100, img_size=64, channels=3):
-    device = torch.device("cpu")
-    z = torch.randn(batch_size, latent_size, 1, 1).to(device)
-    x = torch.randn(batch_size, channels, img_size, img_size).to(device)
-    gen_grids = [1, 4, 32, 256]
-    disc_grids = gen_grids[::-1]
-
-    GEN = Generator(gen_grids, channels, latent_size, features=512)
-    DISC = Discriminator(disc_grids, channels, features=64)
-
-    print(GEN)
-    print(DISC)
-    print("noise shape", z.shape)
-    print("real shape", x.shape)
-
-    g_z = GEN(z).to(device)
-    print("gen shape", g_z.shape)
-
-    d_x = DISC(x).to(device)
-    print("disc shape", d_x.shape)
-
-if __name__ == "__main__":
-    test()

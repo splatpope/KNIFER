@@ -3,9 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from architectures.common import check_required_params
+from architectures.common import BaseTrainer
 from .model import Generator, Discriminator
-from ..dcgan.train import Trainer as DCGANTrainer
 from .util import gradient_penalty
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -15,14 +14,13 @@ def _init_weights(model):
         if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d, nn.InstanceNorm2d)):
             nn.init.normal_(m.weight.data, 0.0, 0.02)
 
-class Trainer(DCGANTrainer):
+class WGP_Trainer(BaseTrainer):
     def __init__(self, dataset, params, num_workers):
-        check_required_params(self, params)
         self.critic_iters = params["critic_iters"]
         self.lambda_gp = params["lambda_gp"]
-        super(Trainer, self).__init__(dataset, params, num_workers)
+        super(WGP_Trainer, self).__init__(dataset, params, num_workers)
 
-    def build(self, params, parallel):
+    def build(self, params):
         self.GEN = Generator(params, features=self.features)
         _init_weights(self.GEN)
         self.DISC = Discriminator(params, features=self.features)
@@ -30,14 +28,10 @@ class Trainer(DCGANTrainer):
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 
-        if parallel:
-            self.GEN = nn.DataParallel(self.GEN)
-            self.DISC = nn.DataParallel(self.DISC)
-
         betas = (self.b1, self.b2)
 
-        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.learning_rate, betas=betas)
-        self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.learning_rate, betas=betas)
+        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.lr_g, betas=betas)
+        self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.lr_d, betas=betas)
         #self.criterion = nn.BCELoss()
 
     def process_batch(self, value, labels):

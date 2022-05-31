@@ -3,10 +3,11 @@ from typing import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.parametrizations import spectral_norm
 
 from ..common import UpSample, DownSample
 import architectures.dcgan.model as DCGAN
-from torch_utils.spectral import SpectralNorm
+#from torch_utils.spectral import SpectralNorm
 
 # from "official" SAGAN implementation
 class Self_Attn(nn.Module):
@@ -45,6 +46,8 @@ class Self_Attn(nn.Module):
 
 # attn_spots is a list of indices fitting inside the mid_layers list
 # which tell where to place attn layers AFTER the corresponding mid layer
+# TODO : make that less dumb, for example by making a Conv2D subclass that can have attention
+# TODO : actually do that for the whole ReSample thingy too
 class Generator(DCGAN.Generator):
     def __init__(self, params, n_gpu=1, features=None, feature_scales=None):
         super(Generator, self).__init__(params, n_gpu=n_gpu, features=features, feature_scales=feature_scales)
@@ -54,25 +57,26 @@ class Generator(DCGAN.Generator):
         self.attn_layers = {}
         for attn in self.attn_spots:
             # we want the out channels of the conv2d module stored in a specific mid layer
-            self.attn_layers[str(attn)] = (Self_Attn(self.mid_layers[attn][0].module.out_channels, 'relu'))
+            self.attn_layers[str(attn)] = (Self_Attn(self.mid_layers[attn][0].out_channels, 'relu'))
         self.attn_layers = nn.ModuleDict(self.attn_layers)
 
     def _input(self, features, start_grid):
         return nn.Sequential(
-            SpectralNorm(nn.ConvTranspose2d(self.n_z, features, start_grid, bias=False)),
+            spectral_norm(nn.ConvTranspose2d(self.n_z, features, start_grid, bias=False)),
             nn.BatchNorm2d(features),
             nn.ReLU(True),
         )
+        
     def _inner_block(self, in_c, out_c, factor):
         return nn.Sequential(
-            UpSample(in_c, out_c, factor, bias=False, spectral_norm=True),
+            UpSample(in_c, out_c, factor, bias=False, spectral=True),
             nn.BatchNorm2d(out_c),
             nn.ReLU(True),
         )
 
     def _output(self, features, factor):
         return nn.Sequential(
-            UpSample(features, self.n_c, factor, spectral_norm=True),
+            UpSample(features, self.n_c, factor, spectral=True),
             nn.Tanh(),
         )
     
@@ -100,7 +104,7 @@ class Discriminator(DCGAN.Discriminator):
         self.attn_layers = {}
         for attn in self.attn_spots:
             # we want the out channels of the conv2d module stored in a specific mid layer
-            self.attn_layers[str(attn)] = (Self_Attn(self.mid_layers[attn][0].module.out_channels, 'relu'))
+            self.attn_layers[str(attn)] = (Self_Attn(self.mid_layers[attn][0].out_channels, 'relu'))
         self.attn_layers = nn.ModuleDict(self.attn_layers)
     
     def main(self, input):
@@ -114,24 +118,25 @@ class Discriminator(DCGAN.Discriminator):
 
     def _input(self, features, start_grid):
         return nn.Sequential(
-            DownSample(self.n_c, features, start_grid, spectral_norm=True),
+            DownSample(self.n_c, features, start_grid, spectral=True),
             nn.LeakyReLU(self.leak_f, True),
         )
 
     def _inner_block(self, in_c, out_c, factor):
         return nn.Sequential(
-            DownSample(in_c, out_c, factor, bias=False, spectral_norm=True),
+            DownSample(in_c, out_c, factor, bias=False, spectral=True),
             nn.BatchNorm2d(out_c),
             nn.LeakyReLU(self.leak_f, True),
         )
 
     def _output(self, features, factor):
         return nn.Sequential(
-            SpectralNorm(nn.Conv2d(features, 1, factor)),
-            nn.Sigmoid(),
+            spectral_norm(nn.Conv2d(features, 1, factor)),
+            #nn.Sigmoid(),
+            ## obviously no sigmoid, since we use hinge loss
+            ## 'obviously'
         )
     
-
     @classmethod
     def get_required_params(cls):
         return super().get_required_params() + [

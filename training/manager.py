@@ -9,6 +9,8 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 
+from architectures.common import BaseTrainer
+
 try:
     from tqdm import tqdm
 except ImportError:
@@ -23,9 +25,17 @@ def make_folder(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-from architectures import DCGANTrainer, SAGANTrainer_256_3_1a_WGP, SAGANTrainer_32_4_2a, SAGANTrainer_32_4_2a_WGP, WGAN_GPTrainer
-from architectures import DCGANTrainerEZMnist
-from architectures import DCGANTrainer_256_3, WGAN_GPTrainer_256_3, SAGANTrainer_256_3_1a
+def lr_check(p):
+    if "lr_g" not in p and "lr_d" not in p:
+        if "learning_rate" in p:
+            p["lr_g"] = p["learning_rate"]
+            p["lr_d"] = p["learning_rate"]
+    if "lr_g" not in p and "lr_d" in p:
+        p["lr_g"] = p["lr_d"]
+    if "lr_d" not in p and "lr_g" in p:
+        p["lr_d"] = p["lr_g"]
+
+from architectures import *
 
 #TODO : allow for setting number of features for models
 # currently equal to biggest grid size
@@ -34,21 +44,24 @@ from architectures import DCGANTrainer_256_3, WGAN_GPTrainer_256_3, SAGANTrainer
 # which defeats the purpose of stochastic batching
 
 KNIFER_ARCHS = {
-    "DCGAN": DCGANTrainer,
-    "DCGAN_256_3": DCGANTrainer_256_3,
-    "DCGAN_EZMNIST": DCGANTrainerEZMnist,
-    "WGAN_GP": WGAN_GPTrainer,
-    "WGAN_GP_256_3": WGAN_GPTrainer_256_3,
-    "SAGAN_TEST": SAGANTrainer_32_4_2a,
-    "SAGAN_TEST_WGP": SAGANTrainer_32_4_2a_WGP,
-    "SAGAN_TEST_WGP_256_3": SAGANTrainer_256_3_1a_WGP,
-    "SAGAN_TEST_256_3": SAGANTrainer_256_3_1a,
+    "DCGAN": DC_Trainer_default,
+    "WGAN_GP": WGP_Trainer_default,
+    "SAGAN": SA_Trainer_default,
+    "SAGAN_WGP": SA_WGP_Trainer_default,
+    "DCGAN_256_3": DC_Trainer_256_3,
+    "DCGAN_EZMNIST": DC_Trainer_EZMnist,
+    "WGAN_GP_256_3": WGP_Trainer_256_3,
+    "SAGAN_32_4_2a": SA_Trainer_32_4_2a,
+    "SAGAN_32_4_2a_WGP": SA_WGP_Trainer_32_4_2a,
+    "SAGAN_256_3_WGP": SA_WGP_Trainer_256_3_1a,
+    "SAGAN_256_3": SA_Trainer_256_3_1a,
 }
 
 ## helper class to handle launching epochs, checkpointing, visualization
 ## meant to be used by the GUI, but can be used alone
 class TrainingManager():
-    def __init__(self, debug=False, parallel=False):
+    def __init__(self, experiment, debug=False, parallel=False):
+        self.experiment_name = experiment ## TODO : integrate in save format along with arch, but this gonna kill back compat
         self.epoch = 0
         self.checkpoint = None
         self.dataset_folder = None
@@ -73,6 +86,11 @@ class TrainingManager():
         self.params = params
         arch = params["arch"]
         img_size = params["img_size"]
+
+        # ensure that lr_g and lr_d are set if there's either of them set
+        # or learning_rate is set (it is then used for both)
+        lr_check(params)
+
         ## TODO : allow for setting up transformations and augmentations
         tr_combo = transforms.Compose([
             transforms.Resize(img_size),
@@ -80,23 +98,22 @@ class TrainingManager():
             transforms.ToTensor(),
             transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5)),
         ])
+        # Premade datasets (e.g. from torchvision) are directly used
         if not premade:
             self.dataset = dset.ImageFolder(self.dataset_folder, transform=tr_combo)
         else:
             assert isinstance(premade, data.Dataset)
             self.dataset = premade
-
+        # Is the architecture provided actually present ?
         try:
-            arch_to_go = KNIFER_ARCHS[arch]
+            arch_to_go: BaseTrainer = KNIFER_ARCHS[arch](params) ## Get the chosen architecture class, mangling parameters if needed
         except KeyError as e:
             print(f"Architecture {e.args[0]} not found. Please provide an architecture present in KNIFER_ARCHS.")
-
+        
+        # Trainer init 
         try:
-            self.trainer = arch_to_go(self.dataset, params, num_workers) 
-            ## may lead to unused params being passed
-            ## who cares ?
-            self.trainer.build(params, self.parallel)
-            
+            self.trainer = arch_to_go(self.dataset, params, num_workers)
+        # If any parameter is missing, the relevant error should rise here
         except KeyError as e:
             print(f"Parameter {e.args[0]} required by {arch}.")
         except Exception:
@@ -110,6 +127,7 @@ class TrainingManager():
         ## We are assuming that all arch trainers use the GEN and DISC names
         self._log(self.trainer.GEN)
         self._log(self.trainer.DISC)
+        ## Get a random sample from the latent space in order to monitor qualitative progress
         self.fixed = self.trainer.get_fixed()
 
     # this function is only for usage with the GUI, which both need to be interruptible
@@ -129,22 +147,22 @@ class TrainingManager():
     def simple_train_loop(self, n_epochs=None, kimg=None):
         self.trainer.GEN.train()
         self.trainer.DISC.train()
+        ## Handle epochs or kiloimages. 
         if not n_epochs and not kimg:
             raise ValueError("Please enter either a number of epochs or a number of kiloimages to train for.")
         if n_epochs and kimg:
             raise ValueError("Do not set both number of epochs and kiloimages to train for.")
-
-        dataloader = self.trainer.data
-
         if not n_epochs:
             n_epochs = (kimg*1000)//len(self.dataset) + 1 ## hacky
+
+        dataloader = self.trainer.data
 
         start_epoch = self.epoch
         for _ in range(n_epochs):
             self.epoch += 1
             self.batch = 0
             self._log(f"Epoch {self.epoch}/{start_epoch + n_epochs}")
-            for batch, labels in tqdm(dataloader):
+            for batch, labels in tqdm(dataloader, dynamic_ncols=True):
                 self.batch += 1
                 self.trainer.process_batch(batch, labels)
             self.checkpoint = self.trainer.serialize()
@@ -152,6 +170,8 @@ class TrainingManager():
     def synthetize_viz(self, dest=None):
         if not dest:
             dest = "./viz/"
+            if self.experiment_name:
+                dest += self.experiment_name
         dest = Path(dest)
         filename = self.get_filestamp() + ".png"
         path = dest / filename
@@ -161,7 +181,7 @@ class TrainingManager():
             #grid = vutils.make_grid(fixed_fakes, normalize=True)
             #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
             make_folder(dest)
-            vutils.save_image(fixed_fakes, fp=path)
+            vutils.save_image(fixed_fakes.cpu(), fp=path)
 
     def save(self, dest=None):
         if not self.checkpoint:

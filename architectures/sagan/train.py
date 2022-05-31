@@ -1,13 +1,12 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from architectures.common import check_required_params
+from architectures.common import BaseTrainer
 from .model import Generator, Discriminator
-from ..dcgan.train import Trainer as DCGANTrainer
-from ..wgan_gp.train import Trainer as WGAN_GPTrainer
-from ..wgan_gp.util import gradient_penalty
+from ..wgan_gp.train import WGP_Trainer as WGAN_GPTrainer
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -16,12 +15,11 @@ def _init_weights(model):
         if isinstance(m, (nn.BatchNorm2d)):
             nn.init.normal_(m.weight.data, 0.0, 0.02)
 
-class Trainer(DCGANTrainer):
+class SA_Trainer(BaseTrainer):
     def __init__(self, dataset, params: dict, num_workers):
-        check_required_params(self, params)
-        super(Trainer, self).__init__(dataset, params, num_workers)
+        super(SA_Trainer, self).__init__(dataset, params, num_workers)
 
-    def build(self, params, parallel = False):
+    def build(self, params):
         self.GEN = Generator(params, features=self.features)
         _init_weights(self.GEN)
         self.DISC = Discriminator(params, features=self.features)
@@ -29,15 +27,11 @@ class Trainer(DCGANTrainer):
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 
-        if parallel:
-            self.GEN = nn.DataParallel(self.GEN)
-            self.DISC = nn.DataParallel(self.DISC)
-
         betas = (self.b1, self.b2)
 
-        self.opt_gen = optim.Adam(filter(lambda p: p.requires_grad, self.GEN.parameters()), lr=self.learning_rate, betas=betas)
-        self.opt_disc = optim.Adam(filter(lambda p: p.requires_grad, self.DISC.parameters()), lr=self.learning_rate, betas=betas)
-        self.criterion = nn.BCELoss()
+        self.opt_gen = optim.Adam(filter(lambda p: p.requires_grad, self.GEN.parameters()), lr=self.lr_g, betas=betas)
+        self.opt_disc = optim.Adam(filter(lambda p: p.requires_grad, self.DISC.parameters()), lr=self.lr_d, betas=betas)
+        #self.criterion = nn.BCELoss()
 
 #uses hinge loss
     def process_batch(self, value, labels):
@@ -47,10 +41,10 @@ class Trainer(DCGANTrainer):
         g_z = self.GEN(z)
         ## Run the real batch through D and compute D's real loss
         d_x = self.DISC(x)
-        loss_d_x = torch.nn.ReLU()(1.0 - d_x).mean()
+        loss_d_x = F.relu(1.0 - d_x).mean()
         ## Run the fake batch through D and compute D's fake loss
         d_g_z = self.DISC(g_z.detach())
-        loss_d_g_z = torch.nn.ReLU()(1.0 + d_g_z).mean()
+        loss_d_g_z = F.relu(1.0 + d_g_z).mean()
         ## Get D's total loss
         loss_d = loss_d_x + loss_d_g_z
         ## Train D
@@ -58,7 +52,7 @@ class Trainer(DCGANTrainer):
         loss_d.backward()
         self.opt_disc.step()
 
-        ## Rerun the fake batch through trained D, then train G
+        ## Rerun a fake batch through trained D, then train G
         output = self.DISC(g_z)
         loss_g = -output.mean()
         self.GEN.zero_grad()
@@ -71,10 +65,9 @@ class Trainer(DCGANTrainer):
             "attn_spots"
         ]
 
-class WGPTrainer(WGAN_GPTrainer):
+class SA_WGP_Trainer(WGAN_GPTrainer):
     def __init__(self, dataset, params: dict, num_workers):
-        check_required_params(self, params)
-        super(WGPTrainer, self).__init__(dataset, params, num_workers)
+        super(SA_WGP_Trainer, self).__init__(dataset, params, num_workers)
 
     def build(self, params, parallel=False):
         self.GEN = Generator(params, features=self.features)
@@ -90,9 +83,11 @@ class WGPTrainer(WGAN_GPTrainer):
 
         betas = (self.b1, self.b2)
 
-        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.learning_rate, betas=betas)
-        self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.learning_rate, betas=betas)
+        self.opt_gen = optim.Adam(self.GEN.parameters(), lr=self.lr_g, betas=betas)
+        self.opt_disc = optim.Adam(self.DISC.parameters(), lr=self.lr_d, betas=betas)
         #self.criterion = nn.BCELoss()
+
+# TODO : not reuse the WGP train method, since we have TTUR now OR simply don't use critic_iters with sagan
 
     @classmethod
     def get_required_params(cls):

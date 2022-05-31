@@ -1,11 +1,88 @@
 import math
 import torch
 import torch.nn as nn
-from torch_utils.spectral import SpectralNorm
+from torch.nn.utils.parametrizations import spectral_norm
+import torch.optim as optim
+from torch.utils.data import DataLoader
+
+
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+class BaseTrainer():
+    def __init__(self, dataset, params: dict, num_workers=0):
+        self.batch_size = params["batch_size"]
+        self.latent_size = params["latent_size"]
+        self.lr_g = params["lr_g"]
+        self.lr_d = params["lr_d"]
+        self.b1 = params["b1"]
+        self.b2 = params["b2"]
+
+        if "features" in params:
+            self.features = params["features"]
+        else:
+            self.features = None
+
+        sample = dataset[0][0]
+
+        self.img_size = sample.shape[2]
+        if not "img_size" in params: ## should never happen but hey
+            params["img_size"] = self.img_size
+
+        self.channels = sample.shape[0]
+        if not "img_channels" in params:
+            params["img_channels"] = self.channels
+
+        grids_from_params_or_default(params)
+
+        pin_memory = torch.cuda.is_available()
+
+        self.data = DataLoader(dataset, self.batch_size, shuffle=True, pin_memory=pin_memory, num_workers=num_workers)
+
+        self.build(params)
+
+    def build(self, params):
+        pass
+
+    def process_batch(self, value, labels):
+        pass
+
+    @classmethod
+    def get_required_params(cls):
+        return [
+            "batch_size",
+            "latent_size",
+            "lr_g",
+            "lr_d",
+            "b1",
+            "b2",
+        ]
+    
+    def get_fixed(self):
+        return torch.randn(self.batch_size, self.latent_size, 1, 1, device=DEVICE)
+
+    def parallelize(self): # don't use for now
+        if torch.cuda.is_available():
+            if torch.cuda.device_count() > 1:
+                self.GEN = nn.DataParallel(self.GEN)
+                self.DISC = nn.DataParallel(self.DISC)
+
+    def serialize(self):
+        return {
+            'G_state': self.GEN.state_dict(),
+            'D_state': self.DISC.state_dict(),
+            'optG_state': self.opt_gen.state_dict(),
+            'optD_state':self.opt_disc.state_dict(),
+        }
+
+    def deserialize(self, state):
+        self.GEN.load_state_dict(state['G_state'])
+        self.DISC.load_state_dict(state['D_state'])
+        self.opt_gen.load_state_dict(state['optG_state'])
+        self.opt_disc.load_state_dict(state['optD_state'])
+
+#######################################################################################################
 
 #### model utilities ####
-
-
 def check_required_params(o, params):
     for p in o.get_required_params():
         if p not in params:
@@ -69,7 +146,7 @@ def layers(grids):
             transitions.append(int(grids[i]/grids[i+1]))
     return transitions
 
-def ReSample(in_c, out_c, factor, bias=True, dir="up", spectral_norm = False):
+def ReSample(in_c, out_c, factor, bias=True, dir="up", spectral = False):
     assert(factor >= 2)
     assert(math.log2(factor).is_integer())
     k = int(2*factor)
@@ -93,12 +170,12 @@ def ReSample(in_c, out_c, factor, bias=True, dir="up", spectral_norm = False):
             padding=p, 
             bias=bias
         )
-    if spectral_norm:
-        op = SpectralNorm(op)
+    if spectral:
+        op = spectral_norm(op)
     return op
 
-def UpSample(in_c, out_c, factor, bias=True, spectral_norm=False):
-    return ReSample(in_c, out_c, factor, bias, dir="up", spectral_norm=spectral_norm)
+def UpSample(in_c, out_c, factor, bias=True, spectral=False):
+    return ReSample(in_c, out_c, factor, bias, dir="up", spectral=spectral)
 
-def DownSample(in_c, out_c, factor, bias=True, spectral_norm=False):
-    return ReSample(in_c, out_c, factor, bias, dir="down", spectral_norm=spectral_norm)
+def DownSample(in_c, out_c, factor, bias=True, spectral=False):
+    return ReSample(in_c, out_c, factor, bias, dir="down", spectral=spectral)
