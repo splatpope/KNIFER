@@ -1,11 +1,7 @@
-import sys
 import argparse
 # TODO : command line utility to supersede the GUI
 # kinda done, just needs a parser really
 import torch
-from torch.utils.data import DataLoader, TensorDataset
-from torchvision.datasets import MNIST
-from torchvision import transforms
 from training import TrainingManager, KNIFER_ARCHS
 
 from metrics import FID

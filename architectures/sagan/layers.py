@@ -6,6 +6,9 @@ from torch.nn.utils.parametrizations import spectral_norm
 
 from ..common import UpKConv2D, DownKConv2D
 
+SPECTRAL_GEN = True
+SPECTRAL_DISC = True
+
 class SelfAttention(nn.Module):
     def __init__(self, in_channel, gain=1):
         super().__init__()
@@ -41,10 +44,13 @@ def NoOp(x):
 #spectralnorm or not ? might wanna test, buddy
 
 class GenInputLayer(nn.Module):
-    def __init__(self, latent_size, out_c):
+    def __init__(self, latent_size, out_c, spectral=SPECTRAL_GEN):
         super().__init__()
         self.conv = nn.ConvTranspose2d(latent_size, out_c, 4, bias=False)
-        nn.init.kaiming_normal_(self.conv.weight.data)
+        if spectral:
+            self.conv = spectral_norm(self.conv)
+        else:
+            nn.init.kaiming_normal_(self.conv.weight.data)
 
         self.bn = nn.BatchNorm2d(out_c)
         nn.init.normal_(self.bn.weight.data, 0.0, 0.2)
@@ -58,10 +64,13 @@ class GenInputLayer(nn.Module):
         return out
 
 class GenMidLayer(nn.Module):
-    def __init__(self, in_c, out_c, factor, attn=False):
+    def __init__(self, in_c, out_c, factor, attn=False, spectral=SPECTRAL_GEN):
         super().__init__()
         self.conv = UpKConv2D(in_c, out_c, factor, bias=False)
-        nn.init.kaiming_normal_(self.conv.weight.data)
+        if spectral:
+            self.conv = spectral_norm(self.conv)
+        else:
+            nn.init.kaiming_normal_(self.conv.weight.data)
 
         self.bn = nn.BatchNorm2d(out_c)
         nn.init.normal_(self.bn.weight.data, 0.0, 0.2)
@@ -79,11 +88,14 @@ class GenMidLayer(nn.Module):
         return out
 
 class GenOutputLayer(nn.Module):
-    def __init__(self, in_c, img_channels, factor):
+    def __init__(self, in_c, img_channels, factor, spectral=SPECTRAL_GEN):
         super().__init__()
         self.conv = UpKConv2D(in_c, img_channels, factor)
-        nn.init.xavier_normal_(self.conv.weight.data)
-        nn.init.zeros_(self.conv.bias.data)
+        if spectral:
+            self.conv = spectral_norm(self.conv)
+        else:
+            nn.init.xavier_normal_(self.conv.weight.data)
+            nn.init.zeros_(self.conv.bias.data)
 
         self.act_fn = nn.Tanh()
 
@@ -95,7 +107,7 @@ class GenOutputLayer(nn.Module):
 ################## Discriminator modules ####################
 
 class DiscInputLayer(nn.Module):
-    def __init__(self, img_channels, out_c, factor, leak=0.2, spectral=True):
+    def __init__(self, img_channels, out_c, factor, leak=0.2, spectral=SPECTRAL_DISC):
         super().__init__()
         self.conv = DownKConv2D(img_channels, out_c, factor)
         if spectral:
@@ -112,7 +124,7 @@ class DiscInputLayer(nn.Module):
         return out
 
 class DiscMidLayer(nn.Module):
-    def __init__(self, in_c, out_c, factor, leak=0.2, spectral=True, attn=False):
+    def __init__(self, in_c, out_c, factor, leak=0.2, spectral=SPECTRAL_DISC, attn=False):
         super().__init__()
         self.conv = DownKConv2D(in_c, out_c, factor, bias=False)
         if spectral:
@@ -135,7 +147,7 @@ class DiscMidLayer(nn.Module):
         return out
 
 class DiscOutputLayer(nn.Module):
-    def __init__(self, in_c, spectral=True):
+    def __init__(self, in_c, spectral=SPECTRAL_DISC):
         super().__init__()
         self.conv = nn.Conv2d(in_c, 1, 4)
         if spectral:

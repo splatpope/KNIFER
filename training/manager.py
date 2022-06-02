@@ -22,6 +22,7 @@ except ImportError:
 
 if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.enabled = True
 
 def make_folder(path):
     if not os.path.exists(path):
