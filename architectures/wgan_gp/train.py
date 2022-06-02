@@ -7,7 +7,7 @@ from architectures.common import BaseTrainer
 from .model import Generator, Discriminator
 from .util import gradient_penalty
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def _init_weights(model):
     for m in model.modules():

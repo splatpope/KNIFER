@@ -8,7 +8,7 @@ from architectures.common import BaseTrainer
 from .model import Generator, Discriminator
 from ..wgan_gp.train import WGP_Trainer as WGAN_GPTrainer
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class SA_Trainer(BaseTrainer):
     def __init__(self, dataset, params: dict, num_workers):
         super(SA_Trainer, self).__init__(dataset, params, num_workers)

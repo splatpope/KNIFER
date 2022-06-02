@@ -4,7 +4,7 @@ import torch.optim as optim
 from . model import Generator, Discriminator
 from .. common import BaseTrainer
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DC_Trainer(BaseTrainer):
     def __init__(self, dataset, params: dict, num_workers=0):
