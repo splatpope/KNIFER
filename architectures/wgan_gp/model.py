@@ -2,51 +2,57 @@ import math
 from typing import OrderedDict
 import torch
 import torch.nn as nn
-from ..common import UpSample, DownSample, validate_grids, layers
-import architectures.dcgan.model as DCGAN
 
-class Generator(DCGAN.Generator):
-    def __init__(self, params, n_gpu=1, features=None, feature_scales=None):
-        super(Generator, self).__init__(params, n_gpu=n_gpu, features=features, feature_scales=feature_scales)
+from . layers import *
+from .. common import BaseDiscriminator, BaseGenerator
 
-    def _input(self, features, start_grid):
-        return nn.Sequential(
-            nn.ConvTranspose2d(self.n_z, features, start_grid, bias=False),
-            nn.BatchNorm2d(features),
-            nn.ReLU(True),
-        )
+class Generator(BaseGenerator):
+    def __init__(self, params: dict):
+        super().__init__(params)
 
-    def _inner_block(self, in_c, out_c, factor):
-        return nn.Sequential(
-            UpSample(in_c, out_c, factor, bias=False),
-            nn.BatchNorm2d(out_c),
-            nn.ReLU(True),
-        )
+        self.n_c = params["img_channels"]
+        self.n_z = params["latent_size"]
+        self.upscales = params["upscales"]
+        self.features = params["features_g"]
 
-    def _output(self, features, factor):
-        return nn.Sequential(
-            UpSample(features, self.n_c, factor),
-            nn.Tanh(),
-        )
+        self.in_layer = GenInputLayer(self.n_z, self.features[0])
+        self.mid_layers = nn.ModuleList([
+            GenMidLayer(
+                self.features[i], 
+                self.features[i+1], 
+                self.upscales[i]
+            ) for i,_ in enumerate(self.features[0:-1])
+        ])
+        self.out_layer = GenOutputLayer(self.features[-1], self.n_c, self.upscales[-1])
 
-class Discriminator(DCGAN.Discriminator):
-    def __init__(self, params, leak_f=0.2, n_gpu=1, features=None, feature_scales=None):
-        super(Discriminator, self).__init__(params, leak_f=leak_f, n_gpu=n_gpu, features=features, feature_scales=feature_scales)
+    def forward(self, z):
+        out = self.in_layer(z)
+        for ml in self.mid_layers:
+            out = ml(out)
+        out = self.out_layer(out)
+        return out
 
-    def _input(self, features, start_grid):
-        return nn.Sequential(
-            DownSample(self.n_c, features, start_grid),
-            nn.LeakyReLU(self.leak_f, True),
-        )
+class Discriminator(BaseDiscriminator):
+    def __init__(self, params, leak=0.2):
+        super().__init__(params)
 
-    def _inner_block(self, in_c, out_c, factor):
-        return nn.Sequential(
-            DownSample(in_c, out_c, factor, bias=False),
-            nn.InstanceNorm2d(out_c, affine=True),
-            nn.LeakyReLU(self.leak_f, True),
-        )
+        self.n_c = params["img_channels"]
+        self.downscales = params["downscales"]
+        self.features = params["features_d"]
 
-    def _output(self, features, factor):
-        return nn.Sequential(
-            nn.Conv2d(features, 1, factor),
-        )
+        self.in_layer = DiscInputLayer(self.n_c, self.features[0], self.downscales[0], leak)
+        self.mid_layers = nn.ModuleList([
+            DiscMidLayer(
+                self.features[i], 
+                self.features[i+1], 
+                self.downscales[i+1]
+            ) for i,_ in enumerate(self.features[0:-1])
+        ])
+        self.out_layer = DiscOutputLayer(self.features[-1])
+
+    def forward(self, img):
+        out = self.in_layer(img)
+        for ml in self.mid_layers:
+            out = ml(out)
+        out = self.out_layer(out)
+        return out.view(-1, 1).squeeze(1)

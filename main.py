@@ -71,6 +71,10 @@ def build_manager(args):
         params.update({
             "features": args.n_features,
         })
+    else:
+        params.update({
+            "features": args.img_size,
+        })
 
     manager = TrainingManager(args.experiment, debug=True, parallel=args.parallel)
     manager.set_dataset_folder(args.dataset)

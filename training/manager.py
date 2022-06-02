@@ -1,7 +1,9 @@
 import datetime
 import glob
+import gc
 import os
 from pathlib import Path
+from platform import architecture
 
 import torch
 from torch.utils import data
@@ -9,7 +11,7 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 
-from architectures.common import BaseTrainer
+from architectures.common import BaseTrainer, doubling_arch_builder
 
 try:
     from tqdm import tqdm
@@ -25,6 +27,8 @@ def make_folder(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+# ensure that lr_g and lr_d are set if there's either of them set
+# or learning_rate is set (it is then used for both)
 def lr_check(p):
     if "lr_g" not in p and "lr_d" not in p:
         if "learning_rate" in p:
@@ -35,30 +39,27 @@ def lr_check(p):
     if "lr_d" not in p and "lr_g" in p:
         p["lr_d"] = p["lr_g"]
 
-from architectures import *
+# TODO : actually make sure that the inputs are coherent
+# when not generating them
+def structure_check(p):
+    if not p.keys() >= {"features_d", "features_g", "upscales", "downscales"}:
+        s, fg, fd = doubling_arch_builder(p["img_size"], p["features"])
+        p["features_g"] = fg
+        p["features_d"] = fd
+        p["upscales"] = s
+        p["downscales"] = s
 
-#TODO : allow for setting number of features for models
-# currently equal to biggest grid size
-#TODO : save current batch id AND ordered data; OR simply allow saving only on epoch change
-# this is to prevent messing with the ordering of mid-epoch data used for training
-# which defeats the purpose of stochastic batching
+
+from architectures import *
 
 KNIFER_ARCHS = {
     "DCGAN": DC_Trainer_default,
     "WGAN_GP": WGP_Trainer_default,
     "SAGAN": SA_Trainer_default,
     "SAGAN_WGP": SA_WGP_Trainer_default,
-    "DCGAN_256_3": DC_Trainer_256_3,
-    "DCGAN_EZMNIST": DC_Trainer_EZMnist,
-    "WGAN_GP_256_3": WGP_Trainer_256_3,
-    "SAGAN_32_4_2a": SA_Trainer_32_4_2a,
-    "SAGAN_32_4_2a_WGP": SA_WGP_Trainer_32_4_2a,
-    "SAGAN_256_3_WGP": SA_WGP_Trainer_256_3_1a,
-    "SAGAN_256_3": SA_Trainer_256_3_1a,
 }
 
 ## helper class to handle launching epochs, checkpointing, visualization
-## meant to be used by the GUI, but can be used alone
 class TrainingManager():
     def __init__(self, experiment, debug=False, parallel=False):
         self.experiment_name = experiment ## TODO : integrate in save format along with arch, but this gonna kill back compat
@@ -79,6 +80,7 @@ class TrainingManager():
     def set_trainer(self, params, premade = None, num_workers=0):
         self.trainer = None
         if (torch.cuda.is_available()): ## may or may not work
+            gc.collect()
             torch.cuda.empty_cache()
         self.epoch = 0
         self.kimg = 0
@@ -86,10 +88,9 @@ class TrainingManager():
         self.params = params
         arch = params["arch"]
         img_size = params["img_size"]
-
-        # ensure that lr_g and lr_d are set if there's either of them set
-        # or learning_rate is set (it is then used for both)
+        
         lr_check(params)
+        structure_check(params)
 
         ## TODO : allow for setting up transformations and augmentations
         tr_combo = transforms.Compose([
@@ -98,12 +99,14 @@ class TrainingManager():
             transforms.ToTensor(),
             transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5)),
         ])
+
         # Premade datasets (e.g. from torchvision) are directly used
         if not premade:
             self.dataset = dset.ImageFolder(self.dataset_folder, transform=tr_combo)
         else:
             assert isinstance(premade, data.Dataset)
             self.dataset = premade
+
         # Is the architecture provided actually present ?
         try:
             arch_to_go: BaseTrainer = KNIFER_ARCHS[arch](params) ## Get the chosen architecture class, mangling parameters if needed

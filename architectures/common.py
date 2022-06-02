@@ -1,12 +1,22 @@
+from email.mime import base
 import math
 import torch
 import torch.nn as nn
-from torch.nn.utils.parametrizations import spectral_norm
-import torch.optim as optim
 from torch.utils.data import DataLoader
 
-
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+#######################################################################################################
+
+#### Misc utilities ####
+
+def is_pow2(n):
+    log2n = math.log2(n)
+    return log2n == int(log2n)
+
+#######################################################################################################
+
+#### Trainer utilities ####
 
 class BaseTrainer():
     def __init__(self, dataset, params: dict, num_workers=0):
@@ -32,11 +42,13 @@ class BaseTrainer():
         if not "img_channels" in params:
             params["img_channels"] = self.channels
 
-        grids_from_params_or_default(params)
-
         pin_memory = torch.cuda.is_available()
 
-        self.data = DataLoader(dataset, self.batch_size, shuffle=True, pin_memory=pin_memory, num_workers=num_workers)
+        self.data = DataLoader(dataset, self.batch_size, 
+            shuffle=True, 
+            pin_memory=pin_memory, 
+            num_workers=num_workers,
+        )
 
         self.build(params)
 
@@ -55,6 +67,10 @@ class BaseTrainer():
             "lr_d",
             "b1",
             "b2",
+            "upscales",
+            "downscales",
+            "features_g",
+            "features_d",
         ]
     
     def get_fixed(self):
@@ -83,99 +99,131 @@ class BaseTrainer():
 #######################################################################################################
 
 #### model utilities ####
+
+class BaseGANModel(nn.Module):
+    def __init__(self, params):
+        super().__init__()
+        check_required_params(self, params)
+
+    def forward(self, input):
+        raise NotImplementedError
+
+    @classmethod
+    def get_required_params(cls):
+        return [
+            "img_channels",
+        ]
+
+class BaseGenerator(BaseGANModel):
+    @classmethod
+    def get_required_params(cls):
+        return super().get_required_params() + [
+            "latent_size",
+            "features_g",
+            "upscales",
+        ]
+
+class BaseDiscriminator(BaseGANModel):
+    @classmethod
+    def get_required_params(cls):
+        return super().get_required_params() + [
+            "features_d",
+            "downscales",
+        ]
+
 def check_required_params(o, params):
     for p in o.get_required_params():
         if p not in params:
             raise KeyError(p) ## should be caught by whatever tries to instanciate o
 
-def grids_from_params_or_default(params: dict):
-        """Ensure that params contain layer size transitions for G and D. 
-        Generate meaningful defaults otherwise.
+def disc_features(
+        n_layers: int, 
+        base_features: int, 
+        features_list: "list[int]" = []
+    ) -> "list[int]":
+    """Derive list of features for generator tail layers.
+
+    Args:
+        n_layers (int): Amount of tail layers.
+        base_features (int): Base amount of features. 
+            (i.e. in_c of the first mid layer)
+        feature_list (list[int], optional): List of in_c for the tail layers. 
+            If missing, every layer will have double the preceding layer's features. 
+            Defaults to None.
+    """
+    
+    if not features_list:
+        features_list = [base_features]
+    assert features_list[0] == base_features, "Bogus features list."
+    adds = [features_list[-1] * 2**(i+1) for i in range(n_layers - len(features_list))]
+    return features_list + adds
+
+def gen_features(
+        n_layers: int, 
+        base_features: int, 
+        features_list: "list[int]" = []
+    ) -> "list[int]":
+    return disc_features(n_layers, base_features, features_list)[::-1]
+
+
+class UpKConv2D(nn.ConvTranspose2d):
+    def __init__(self, 
+        in_c: int, 
+        out_c: int, 
+        K: int,
+        bias: bool = True,
+    ):
+        """2D upscaling convolution layer of factor K (power of two)
 
         Args:
-            params (dict): model hyperparameters
-
-        Raises:
-            AttributeError: img_size needs to be known (or the params are malformed anyway)
-
-        Returns:
-            list, list : the layer size transitions
+            in_c (int): Input channels.
+            out_c (int): Output channels.
+            K (int): Upscaling factor (power of two).
+            bias (bool, optional): Uses bias. Defaults to True.
         """
-        if "img_size" not in params:
-            raise AttributeError
-        img_size = params["img_size"]
-
-        if "grids_g" not in params:
-            grids_g = [1]
-            i = 4
-            while i <= img_size:
-                grids_g.append(i)
-                i *= 2
-            params["grids_g"] = grids_g
-        else:
-            validate_grids(params["grids_g"])
-
-        assert(params["grids_g"][-1] == img_size) # no weird stuff happened while building grids_g ?
-
-        if "grids_d" not in params:
-            grids_d = grids_g[::-1]
-            params["grids_d"] = grids_d
-        else:
-            validate_grids(params["grids_d"])
-
-        assert(params["grids_d"][0] == img_size) # ditto
-
-## A list of integer grid sizes is valid if they are all powers of 2 and are monotonically arranged
-def validate_grids(grids):
-    assert(isinstance(grids, list))
-    assert(all([isinstance(g, int) for g in grids]))
-    if any([not math.log2(g).is_integer() for g in grids]):
-        return False
-    if grids == sorted(grids) or grids == sorted(grids, reverse=True):
-        return True
-    return False
-
-## Compute grid transitions to get layer parameters
-def layers(grids):
-    transitions = []
-    if grids[0] < grids[1]: # upscaling
-        for i in range(len(grids)-1):
-            transitions.append(int(grids[i+1]/grids[i]))
-    else: # downscaling
-        for i in range(len(grids)-1):
-            transitions.append(int(grids[i]/grids[i+1]))
-    return transitions
-
-def ReSample(in_c, out_c, factor, bias=True, dir="up", spectral = False):
-    assert(factor >= 2)
-    assert(math.log2(factor).is_integer())
-    k = int(2*factor)
-    s = int(factor)
-    p = int(factor/2)
-    if dir == "up":
-        op = nn.ConvTranspose2d(
-            in_channels=in_c, 
-            out_channels=out_c, 
-            kernel_size=k, 
-            stride=s, 
-            padding=p, 
+        assert is_pow2(K), "Upscaling factor not power of 2"
+        super().__init__(in_c, out_c,
+            kernel_size = int(2*K),
+            stride = int(K),
+            padding = int(K/2),
             bias=bias
         )
-    elif dir == "down":
-        op = nn.Conv2d(
-            in_channels=in_c, 
-            out_channels=out_c, 
-            kernel_size=k, 
-            stride=s, 
-            padding=p, 
+
+class DownKConv2D(nn.Conv2d):
+    def __init__(self, in_c: int, out_c: int, K: int, bias: bool = True):
+        """2D downscaling convolution layer of factor K (power of two)
+
+        Args:
+            in_c (int): Input channels.
+            out_c (int): Output channels.
+            K (int): Downscaling factor (power of two).
+            bias (bool, optional): Uses bias. Defaults to True.
+        """
+        assert is_pow2(K), "Downscaling factor not power of 2"
+        super().__init__(in_c, out_c,
+            kernel_size = int(2*K),
+            stride = int(K),
+            padding = int(K/2),
             bias=bias
         )
-    if spectral:
-        op = spectral_norm(op)
-    return op
 
-def UpSample(in_c, out_c, factor, bias=True, spectral=False):
-    return ReSample(in_c, out_c, factor, bias, dir="up", spectral=spectral)
+def doubling_arch_builder(img_size: int, base_features: int):
+    """Builds required parameters for an architectures that does x2 upscales/downscales
+    and doubles their layer feature, based on an image size and base number of features.
 
-def DownSample(in_c, out_c, factor, bias=True, spectral=False):
-    return ReSample(in_c, out_c, factor, bias, dir="down", spectral=spectral)
+    Args:
+        img_size (int): Image size for the models. (i.e. dataset and generator output)
+        base_features (int): Base amount of conv layer features.
+
+    Returns:
+        Parameters (Tuple[int, int, int]): Upscale/Downscale factor list and features.
+    """
+    scalings = []
+    size = 4
+    while size < img_size:
+        scalings.append(2)
+        size *= 2
+    features_d = disc_features(len(scalings), base_features)
+    features_g = features_d[::-1]
+    return scalings, features_d, features_g
+    

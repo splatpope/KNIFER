@@ -1,26 +1,18 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
-from .model import Generator, Discriminator
-from ..common import BaseTrainer
+from . model import Generator, Discriminator
+from .. common import BaseTrainer
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def _init_weights(model):
-    for m in model.modules():
-        if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
-            nn.init.normal_(m.weight.data, 0.0, 0.02)
-
 class DC_Trainer(BaseTrainer):
     def __init__(self, dataset, params: dict, num_workers=0):
-        super(DC_Trainer, self).__init__(dataset, params, num_workers)
+        super().__init__(dataset, params, num_workers)
     
     def build(self, params):
-        self.GEN = Generator(params, features=self.features)
-        _init_weights(self.GEN)
-        self.DISC = Discriminator(params, features=self.features)
-        _init_weights(self.DISC)
+        self.GEN = Generator(params)
+        self.DISC = Discriminator(params)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 
