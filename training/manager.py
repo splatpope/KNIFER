@@ -127,6 +127,9 @@ class TrainingManager():
             print("Trainer initialization failed.")
             return
 
+        if self.parallel:
+            self.trainer.GEN = torch.nn.DataParallel(self.trainer.GEN)
+            self.trainer.DISC = torch.nn.DataParallel(self.trainer.DISC)
         ## We are assuming that all arch trainers use the GEN and DISC names
         self._log(self.trainer.GEN)
         self._log(self.trainer.DISC)
