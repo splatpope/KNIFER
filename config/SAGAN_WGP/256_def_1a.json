@@ -1,6 +1,5 @@
 {
     "arch": "SAGAN_WGP",
-    "batch_size": 16,
     "img_size": 256,
     "b1": 0.0,
     "b2": 0.9,
@@ -12,6 +11,6 @@
     "features_d": [256, 512, 512, 1024],
     "features_g": [1024, 512, 512, 256],
     "attn_spots": [1],
-    "critic_iters": 1,
+    "critic_iters": 2,
     "lambda_gp": 10
 }
