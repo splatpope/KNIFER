@@ -101,14 +101,24 @@ class TrainingManager():
                 transforms.Resize(img_size),
                 transforms.CenterCrop(img_size),
                 transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5,0.5,0.5], std=[0.5,0.5,0.5])
             ])
 
             self.dataset = dset.ImageFolder(self.dataset_folder, transform=tr_combo)
-            self.mean, self.std = batch_mean_and_sd(self.dataset)
-            tr_combo_norm = transforms.Compose([ 
-                tr_combo,
-                transforms.Normalize(self.mean, self.std),
-            ])
+            #self.mean, self.std = batch_mean_and_sd(self.dataset)
+            #tr_combo_norm = transforms.Compose([ 
+            #    tr_combo,
+            #    transforms.Normalize(self.mean, self.std),
+            #])
+            #self.dataset = dset.ImageFolder(self.dataset_folder, transform=tr_combo_norm)
+            #self.denorm = transforms.Normalize(
+            #    mean=[-m/s for m, s in zip(self.mean, self.std)],
+            #    std=[1/s for s in self.std]
+            #)
+            self.denorm = transforms.Normalize(
+                mean= [-1, -1, -1],
+                std= [2, 2, 2],
+            )
         else:
             assert isinstance(premade, data.Dataset)
             self.dataset = premade
@@ -180,10 +190,16 @@ class TrainingManager():
             self.checkpoint = self.trainer.serialize()
 
     def denormalize(self, batch):
-        ten = batch.clone().permute(1, 2, 3, 0)
-        for t, m, s in zip(ten, self.mean, self.std):
-            t.mul_(s).add_(m)
-        return torch.clamp(ten, 0, 1).permute(3, 0, 1, 2)
+        r, g, b = batch.unbind(1)
+        r = r + self.mean[0]
+        g = g + self.mean[1]
+        b = b + self.mean[2]
+
+        r = r * self.std[0]
+        g = g + self.std[1]
+        b = b + self.std[2]
+
+        return torch.stack((r,g,b), dim=1).clamp(0, 1)
 
     def synthetize_viz(self, dest=None):
         if not dest:
@@ -195,12 +211,12 @@ class TrainingManager():
         path = dest / filename
         with torch.no_grad():
             self.trainer.GEN.eval()
-            fixed_fakes = self.trainer.GEN(self.fixed)
-            #fixed_fakes = self.denormalize(fixed_fakes)
+            fixed_fakes = self.trainer.GEN(self.fixed).cpu()
+            fakes_denorm = self.denorm(fixed_fakes)
             #grid = vutils.make_grid(fixed_fakes, normalize=True)
             #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
             make_folder(dest)
-            vutils.save_image(fixed_fakes.cpu(), fp=path)
+            vutils.save_image(fakes_denorm, fp=path)
 
     def save(self, dest=None):
         if not self.checkpoint:
