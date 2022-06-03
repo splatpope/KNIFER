@@ -61,15 +61,11 @@ class SA_WGP_Trainer(WGAN_GPTrainer):
     def __init__(self, dataset, params: dict, num_workers):
         super(SA_WGP_Trainer, self).__init__(dataset, params, num_workers)
 
-    def build(self, params, parallel=False):
+    def build(self, params):
         self.GEN = Generator(params)
         self.DISC = Discriminator(params)
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
-
-        if parallel:
-            self.GEN = nn.DataParallel(self.GEN)
-            self.DISC = nn.DataParallel(self.DISC)
 
         betas = (self.b1, self.b2)
 

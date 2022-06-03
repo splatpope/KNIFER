@@ -44,10 +44,8 @@ class WGP_Trainer(BaseTrainer):
             ## Run the real batch through D and compute D's real loss
             d_x = self.DISC(x) ## critic real
 
-            #loss_d_x = self.criterion(d_x, torch.ones_like(d_x)) ## not needed for wgan
             ## Run the fake batch through D and compute D's fake loss
             d_g_z = self.DISC(g_z.detach()) ## critic fake
-            #loss_d_g_z = self.criterion(d_g_z, torch.zeros_like(d_g_z)) ## not needed for wgan
             gp = gradient_penalty(self.DISC, x, g_z, device=DEVICE)
             loss_critic = (
                 -(torch.mean(d_x) - torch.mean(d_g_z)) + self.lambda_gp * gp
