@@ -39,6 +39,8 @@ Example : DCGAN architecture with 128 base features doubling the first three ste
 
 As you can see, the number of layers for each model is indirectly decided from the image size and scaling lists.
 
+Note that you can override any other parameter that can be set at command line.
+
 ## Automatic architecture building
 
 You may let the training manager build an architecture for you by replacing the scaling and feature lists by a single parameter named *features*.

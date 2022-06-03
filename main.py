@@ -18,23 +18,10 @@ def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int, save_st
         if (i+1) % viz_step == 0:
             manager.synthetize_viz(viz_dest)
 
-def build_manager(args, p=None):
-    if p is None:
-        p = dict()
-    p.update({
-        "batch_size": args.batch_size,
-        "latent_size": args.latent_size,
-        "lr_g": args.lr_g,
-        "lr_d": args.lr_d,
-        "b1": args.b1,
-        "b2": args.b2,
-        "critic_iters": args.critic_iters,
-        "lambda_gp": args.lambda_gp,
-    })
-
+def build_manager(args, params):
     manager = TrainingManager(args.experiment, debug=True, parallel=args.parallel)
     manager.set_dataset_folder(args.dataset)
-    manager.set_trainer(p, num_workers=args.num_workers)
+    manager.set_trainer(params, num_workers=args.num_workers)
     return manager
 
 def arch_from_cfg(path):
@@ -66,7 +53,18 @@ if __name__ == '__main__':
     parser.add_argument('--lambda_gp', default=10, type=int, help="(WGAN+GP) Lambda factor for gradient penalty")
 
     args = parser.parse_args()
+    p = {
+        "batch_size": args.batch_size,
+        "latent_size": args.latent_size,
+        "lr_g": args.lr_g,
+        "lr_d": args.lr_d,
+        "b1": args.b1,
+        "b2": args.b2,
+        "critic_iters": args.critic_iters,
+        "lambda_gp": args.lambda_gp,
+    }
+
     print(args)
-    p = arch_from_cfg(args.config_file)
+    p.update(arch_from_cfg(args.config_file))
     print(p)
     tm = build_manager(args, p)
