@@ -1,5 +1,3 @@
-from pyexpat import features
-import torch
 import torch.nn as nn
 
 from ..common import UpKConv2D, DownKConv2D
@@ -12,14 +10,15 @@ class GenInputLayer(nn.Module):
         self.conv = nn.ConvTranspose2d(latent_size, out_c, 4, bias=False)
         nn.init.kaiming_normal_(self.conv.weight.data)
 
-        self.bn = nn.BatchNorm2d(out_c)
-        nn.init.normal_(self.bn.weight.data, 0.0, 0.2)
+        self.norm = nn.BatchNorm2d(out_c)
+        nn.init.normal_(self.norm.weight.data, 1.0, 0.2)
+        nn.init.zeros_(self.norm.bias.data)
 
         self.act_fn = nn.ReLU()
     
     def forward(self, z):
         out = self.conv(z)
-        out = self.bn(out)
+        out = self.norm(out)
         return self.act_fn(out)
 
 class GenMidLayer(nn.Module):
@@ -28,14 +27,15 @@ class GenMidLayer(nn.Module):
         self.conv = UpKConv2D(in_c, out_c, factor, bias=False)
         nn.init.kaiming_normal_(self.conv.weight.data)
 
-        self.bn = nn.BatchNorm2d(out_c)
-        nn.init.normal_(self.bn.weight.data, 0.0, 0.2)
+        self.norm = nn.BatchNorm2d(out_c)
+        nn.init.normal_(self.norm.weight.data, 1.0, 0.2)
+        nn.init.zeros_(self.norm.bias.data)
 
         self.act_fn = nn.ReLU()
 
     def forward(self, input):
         out = self.conv(input)
-        out = self.bn(out)
+        out = self.norm(out)
         return self.act_fn(out)
 
 class GenOutputLayer(nn.Module):
@@ -72,8 +72,9 @@ class DiscMidLayer(nn.Module):
         self.conv = DownKConv2D(in_c, out_c, factor, bias=False)
         nn.init.kaiming_normal_(self.conv.weight.data)
 
-        self.norm = nn.InstanceNorm2d(out_c)
-        nn.init.normal_(self.bn.weight.data, 0.0, 0.2)
+        self.norm = nn.InstanceNorm2d(out_c, affine=True)
+        nn.init.normal_(self.norm.weight.data, 1.0, 0.2)
+        nn.init.zeros_(self.norm.bias.data)
         
         self.act_fn = nn.LeakyReLU(negative_slope=leak)
 

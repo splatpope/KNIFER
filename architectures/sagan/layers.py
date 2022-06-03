@@ -1,4 +1,3 @@
-from glob import escape
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -52,14 +51,15 @@ class GenInputLayer(nn.Module):
         else:
             nn.init.kaiming_normal_(self.conv.weight.data)
 
-        self.bn = nn.BatchNorm2d(out_c)
-        nn.init.normal_(self.bn.weight.data, 0.0, 0.2)
+        self.norm = nn.BatchNorm2d(out_c)
+        nn.init.normal_(self.norm.weight.data, 1.0, 0.2)
+        nn.init.zeros_(self.norm.bias.data)
 
         self.act_fn = nn.ReLU()
     
     def forward(self, z):
         out = self.conv(z)
-        out = self.bn(out)
+        out = self.norm(out)
         out = self.act_fn(out)
         return out
 
@@ -72,8 +72,9 @@ class GenMidLayer(nn.Module):
         else:
             nn.init.kaiming_normal_(self.conv.weight.data)
 
-        self.bn = nn.BatchNorm2d(out_c)
-        nn.init.normal_(self.bn.weight.data, 0.0, 0.2)
+        self.norm = nn.BatchNorm2d(out_c)
+        nn.init.normal_(self.norm.weight.data, 1.0, 0.2)
+        nn.init.zeros_(self.norm.bias.data)
 
         self.act_fn = nn.ReLU()
 
@@ -82,7 +83,7 @@ class GenMidLayer(nn.Module):
 
     def forward(self, input):
         out = self.conv(input)
-        out = self.bn(out)
+        out = self.norm(out)
         out = self.act_fn(out)
         out = self.attn(out)
         return out
@@ -132,8 +133,9 @@ class DiscMidLayer(nn.Module):
         else:
             nn.init.kaiming_normal_(self.conv.weight.data)
 
-        self.bn = nn.BatchNorm2d(out_c)
-        nn.init.normal_(self.bn.weight.data, 0.0, 0.2)
+        self.norm = nn.InstanceNorm2d(out_c, affine=True)
+        nn.init.normal_(self.norm.weight.data, 1.0, 0.2)
+        nn.init.zeros_(self.norm.bias.data)
 
         self.act_fn = nn.LeakyReLU(negative_slope=leak)
 
@@ -141,7 +143,7 @@ class DiscMidLayer(nn.Module):
 
     def forward(self, input):
         out = self.conv(input)
-        out = self.bn(out)
+        out = self.norm(out)
         out = self.act_fn(out)
         out = self.attn(out)
         return out

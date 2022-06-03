@@ -3,7 +3,6 @@ import glob
 import gc
 import os
 from pathlib import Path
-from platform import architecture
 
 import torch
 from torch.utils import data
@@ -12,6 +11,8 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 
 from architectures.common import BaseTrainer, doubling_arch_builder
+
+from . dataset import batch_mean_and_sd
 
 try:
     from tqdm import tqdm
@@ -52,14 +53,14 @@ def structure_check(p):
 
 
 from architectures import *
-
+###################################################
 KNIFER_ARCHS = {
     "DCGAN": DC_Trainer_default,
     "WGAN_GP": WGP_Trainer_default,
     "SAGAN": SA_Trainer_default,
     "SAGAN_WGP": SA_WGP_Trainer_default,
 }
-
+###################################################
 ## helper class to handle launching epochs, checkpointing, visualization
 class TrainingManager():
     def __init__(self, experiment, debug=False, parallel=False):
@@ -92,18 +93,22 @@ class TrainingManager():
         
         lr_check(params)
         structure_check(params)
-
-        ## TODO : allow for setting up transformations and augmentations
-        tr_combo = transforms.Compose([
-            transforms.Resize(img_size),
-            transforms.CenterCrop(img_size),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5)),
-        ])
-
+        
         # Premade datasets (e.g. from torchvision) are directly used
         if not premade:
+            ## TODO : allow for setting up transformations and augmentations
+            tr_combo = transforms.Compose([
+                transforms.Resize(img_size),
+                transforms.CenterCrop(img_size),
+                transforms.ToTensor(),
+            ])
+
             self.dataset = dset.ImageFolder(self.dataset_folder, transform=tr_combo)
+            self.mean, self.std = batch_mean_and_sd(self.dataset)
+            tr_combo_norm = transforms.Compose([ 
+                tr_combo,
+                transforms.Normalize(self.mean, self.std),
+            ])
         else:
             assert isinstance(premade, data.Dataset)
             self.dataset = premade
@@ -174,6 +179,12 @@ class TrainingManager():
                 self.trainer.process_batch(batch, labels)
             self.checkpoint = self.trainer.serialize()
 
+    def denormalize(self, batch):
+        ten = batch.clone().permute(1, 2, 3, 0)
+        for t, m, s in zip(ten, self.mean, self.std):
+            t.mul_(s).add_(m)
+        return torch.clamp(ten, 0, 1).permute(3, 0, 1, 2)
+
     def synthetize_viz(self, dest=None):
         if not dest:
             dest = "./viz/"
@@ -185,6 +196,7 @@ class TrainingManager():
         with torch.no_grad():
             self.trainer.GEN.eval()
             fixed_fakes = self.trainer.GEN(self.fixed)
+            fixed_fakes = self.denormalize(fixed_fakes)
             #grid = vutils.make_grid(fixed_fakes, normalize=True)
             #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
             make_folder(dest)

@@ -1,5 +1,3 @@
-import math
-import torch
 import torch.nn as nn
 from . layers import *
 from .. common import BaseDiscriminator, BaseGenerator
