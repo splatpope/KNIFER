@@ -196,7 +196,7 @@ class TrainingManager():
         with torch.no_grad():
             self.trainer.GEN.eval()
             fixed_fakes = self.trainer.GEN(self.fixed)
-            fixed_fakes = self.denormalize(fixed_fakes)
+            #fixed_fakes = self.denormalize(fixed_fakes)
             #grid = vutils.make_grid(fixed_fakes, normalize=True)
             #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
             make_folder(dest)
