@@ -9,8 +9,8 @@
     "latent_size": 100,
     "upscales": [2, 2, 4, 4],
     "downscales": [4, 4, 2, 2],
-    "features_d": [256, 512, 1024, 1024],
-    "features_g": [1024, 1024, 512, 256],
+    "features_d": [256, 512, 512, 1024],
+    "features_g": [1024, 512, 512, 256],
     "attn_spots": [1],
     "critic_iters": 1,
     "lambda_gp": 10
