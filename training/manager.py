@@ -8,11 +8,12 @@ import torch
 from torch.utils import data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
-import torchvision.utils as vutils
+
+from . logging import GANLogger, NoTBError
 
 from architectures.common import BaseTrainer, doubling_arch_builder
 
-from . dataset import batch_mean_and_sd
+#from . dataset import batch_mean_and_sd
 
 try:
     from tqdm import tqdm
@@ -25,9 +26,6 @@ if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.enabled = True
 
-def make_folder(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
 
 # ensure that lr_g and lr_d are set if there's either of them set
 # or learning_rate is set (it is then used for both)
@@ -63,8 +61,10 @@ KNIFER_ARCHS = {
 ###################################################
 ## helper class to handle launching epochs, checkpointing, visualization
 class TrainingManager():
-    def __init__(self, experiment, debug=False, parallel=False):
+    def __init__(self, experiment, debug=False, parallel=False, use_tensorboard=True):
         self.experiment_name = experiment ## TODO : integrate in save format along with arch, but this gonna kill back compat
+        self.logger = GANLogger(experiment, use_tensorboard)
+
         self.epoch = 0
         self.checkpoint = None
         self.dataset_folder = None
@@ -105,16 +105,7 @@ class TrainingManager():
             ])
 
             self.dataset = dset.ImageFolder(self.dataset_folder, transform=tr_combo)
-            #self.mean, self.std = batch_mean_and_sd(self.dataset)
-            #tr_combo_norm = transforms.Compose([ 
-            #    tr_combo,
-            #    transforms.Normalize(self.mean, self.std),
-            #])
-            #self.dataset = dset.ImageFolder(self.dataset_folder, transform=tr_combo_norm)
-            #self.denorm = transforms.Normalize(
-            #    mean=[-m/s for m, s in zip(self.mean, self.std)],
-            #    std=[1/s for s in self.std]
-            #)
+
             self.denorm = transforms.Normalize(
                 mean= [-1, -1, -1],
                 std= [2, 2, 2],
@@ -131,12 +122,11 @@ class TrainingManager():
         
         # Trainer init 
         try:
-            self.trainer = arch_to_go(self.dataset, params, num_workers)
+            self.trainer: BaseTrainer = arch_to_go(self.dataset, params, num_workers)
         # If any parameter is missing, the relevant error should rise here
         except KeyError as e:
             print(f"Parameter {e.args[0]} required by {arch}.")
         except Exception:
-            ## something else happened, figure it out bro
             raise
 
         if not self.trainer:
@@ -146,10 +136,10 @@ class TrainingManager():
         if self.parallel:
             self.trainer.GEN = torch.nn.DataParallel(self.trainer.GEN)
             self.trainer.DISC = torch.nn.DataParallel(self.trainer.DISC)
-        ## We are assuming that all arch trainers use the GEN and DISC names
+        # We are assuming that all arch trainers use the GEN and DISC names
         self._log(self.trainer.GEN)
         self._log(self.trainer.DISC)
-        ## Get a random sample from the latent space in order to monitor qualitative progress
+        # Get a random sample from the latent space in order to monitor qualitative progress
         self.fixed = self.trainer.get_fixed()
 
     # this function is only for usage with the GUI, which both need to be interruptible
@@ -167,9 +157,10 @@ class TrainingManager():
 
     # this function is more adapted to command line training
     def simple_train_loop(self, n_epochs=None, kimg=None):
-        self.trainer.GEN.train()
-        self.trainer.DISC.train()
-        ## Handle epochs or kiloimages. 
+        self.logger.init_stats() # to be safe
+
+        # Handle epochs or kiloimages.
+        # Actually not used, but hey
         if not n_epochs and not kimg:
             raise ValueError("Please enter either a number of epochs or a number of kiloimages to train for.")
         if n_epochs and kimg:
@@ -181,49 +172,49 @@ class TrainingManager():
 
         start_epoch = self.epoch
         for _ in range(n_epochs):
+            # Make sure that models are in train mode
+            self.trainer.GEN.train()
+            self.trainer.DISC.train()
+            self.logger.init_stats() ## Reset loss averages
+
             self.epoch += 1
+            self.logger.epoch = self.epoch
             self.batch = 0
             self._log(f"Epoch {self.epoch}/{start_epoch + n_epochs}")
+
             for batch, labels in tqdm(dataloader, dynamic_ncols=True):
                 self.batch += 1
-                self.trainer.process_batch(batch, labels)
+                self.logger.update_stats(*self.trainer.process_batch(batch, labels))
+
+            self._log(self.logger.epoch_stats)
+
+            try:
+                self.logger.write_stats()
+                self.trainer.GEN.eval()
+                self.synth_fixed(dest="tb")
+            except NoTBError:
+                pass
+
             self.checkpoint = self.trainer.serialize()
 
-    def denormalize(self, batch):
-        r, g, b = batch.unbind(1)
-        r = r + self.mean[0]
-        g = g + self.mean[1]
-        b = b + self.mean[2]
-
-        r = r * self.std[0]
-        g = g + self.std[1]
-        b = b + self.std[2]
-
-        return torch.stack((r,g,b), dim=1).clamp(0, 1)
-
-    def synthetize_viz(self, dest=None):
-        if not dest:
-            dest = "./viz/"
-            if self.experiment_name:
-                dest += self.experiment_name
-        dest = Path(dest)
-        filename = self.get_filestamp() + ".png"
-        path = dest / filename
+    def synth_fakes(self, n=1, z=None):
+        if z is None:
+            z = torch.randn(n, self.params["latent_size"], 1, 1)
         with torch.no_grad():
-            self.trainer.GEN.eval()
-            fixed_fakes = self.trainer.GEN(self.fixed).cpu()
-            fakes_denorm = self.denorm(fixed_fakes)
-            #grid = vutils.make_grid(fixed_fakes, normalize=True)
-            #grid_pil = transforms.ToPILImage()(grid).convert("RGB")
-            make_folder(dest)
-            vutils.save_image(fakes_denorm, fp=path)
+            fakes = self.trainer.GEN(z).cpu()
+            return self.denorm(fakes)
 
-    def save(self, dest=None):
-        if not self.checkpoint:
+    def synth_fixed(self, dest="storage"):
+        fixed_fakes = self.synth_fakes(z=self.fixed)
+        self.logger.save_samples(fixed_fakes, dest=dest)
+
+    def save(self):
+        if not self.checkpoint: # duh
             self._log("Nothing to save !")
             return False
-        if not self.dataset_folder:
+        if not self.dataset_folder: # for testing purposes, ignore
             self._log("Not using a custom dataset, treating as dry run, not saving !")
+        # Save state
         state = {
             'dataset': self.dataset_folder,
             'model': self.checkpoint,
@@ -231,21 +222,19 @@ class TrainingManager():
             'epoch': self.epoch,
             'kimg': self.kimg,
         }
-        if not dest:
-            dest = "./savestates/"
-        dest = Path(dest)
-        filename = self.get_filestamp() + ".pth"
-        path = dest / filename
-        make_folder(dest)
-        torch.save(state, path)
-        return path
+        path = self.logger.save_checkpoint(state)
+        self._log("Saved checkpoint at " + path)
+        return True
 
     def load(self, path, premade=None) -> int:
+        # Retrieve state
         if os.path.isdir(path): ## specify a directory to get the latest checkpoint inside
             files = glob.glob(path)
             path = max(files, key=os.path.getmtime)
         ## or just a file to load it directly
-        state = torch.load(path)
+        state = self.logger.load_checkpoint(path)
+
+        # Build manager from state
         self.set_dataset_folder(state['dataset'])
         if not self.dataset_folder and not premade:
             self._log("ERROR: checkpoint needs a premade dataset to be specified!")
@@ -258,6 +247,7 @@ class TrainingManager():
         self.batch = 0
         return self.batch
 
+# this one is gonna be a little bit obsolete for now
     def get_filestamp(self) -> str:
         arch = self.params["arch"]
         epoch = self.epoch

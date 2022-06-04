@@ -8,12 +8,6 @@ from .model import Generator, Discriminator
 from .util import gradient_penalty
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-def _init_weights(model):
-    for m in model.modules():
-        if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d, nn.InstanceNorm2d)):
-            nn.init.normal_(m.weight.data, 0.0, 0.02)
-
 class WGP_Trainer(BaseTrainer):
     def __init__(self, dataset, params, num_workers):
         self.critic_iters = params["critic_iters"]
@@ -22,9 +16,8 @@ class WGP_Trainer(BaseTrainer):
 
     def build(self, params):
         self.GEN = Generator(params, features=self.features)
-        _init_weights(self.GEN)
         self.DISC = Discriminator(params, features=self.features)
-        _init_weights(self.DISC)
+
         self.GEN.to(DEVICE)
         self.DISC.to(DEVICE)
 
@@ -35,20 +28,21 @@ class WGP_Trainer(BaseTrainer):
         #self.criterion = nn.BCELoss()
 
     def process_batch(self, value, labels):
-        x = value.to(DEVICE) # real
+        real = value.to(DEVICE)
         for i in range(self.critic_iters):
             ## Get a batch of noise and run it through G to get a fake batch
             z = torch.randn(value.shape[0], self.latent_size, 1, 1, device=DEVICE)
-            g_z = self.GEN(z) ## fake
+            fake = self.GEN(z) ## fake
 
             ## Run the real batch through D and compute D's real loss
-            d_x = self.DISC(x) ## critic real
-
+            D_real = self.DISC(real) ## critic real
+            loss_D_real = -torch.mean(D_real)
             ## Run the fake batch through D and compute D's fake loss
-            d_g_z = self.DISC(g_z.detach()) ## critic fake
-            gp = gradient_penalty(self.DISC, x, g_z, device=DEVICE)
+            D_fake = self.DISC(fake.detach()) ## critic fake
+            loss_D_fake = torch.mean(D_fake)
+            gp = gradient_penalty(self.DISC, real, fake, device=DEVICE)
             loss_critic = (
-                -(torch.mean(d_x) - torch.mean(d_g_z)) + self.lambda_gp * gp
+                loss_D_real + loss_D_fake + self.lambda_gp * gp
             )
 
             self.DISC.zero_grad()
@@ -56,11 +50,13 @@ class WGP_Trainer(BaseTrainer):
             self.opt_disc.step()
 
         ## Rerun the fake batch through trained D, then train G
-        output = self.DISC(g_z) # critic fake post training
-        loss_g = -torch.mean(output)
+        Dp_fake = self.DISC(fake) # critic fake post training
+        loss_G = -torch.mean(Dp_fake)
         self.GEN.zero_grad()
-        loss_g.backward()
+        loss_G.backward()
         self.opt_gen.step()
+
+        return loss_G.item(), loss_critic.item(), loss_D_real.item(), loss_D_fake.item()
 
     @classmethod
     def get_required_params(cls):

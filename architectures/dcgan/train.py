@@ -23,25 +23,32 @@ class DC_Trainer(BaseTrainer):
         self.criterion = nn.BCELoss()
     
     def process_batch(self, value, labels):
-        x = value.to(DEVICE)
+        real = value.to(DEVICE)
         ## Get a batch of noise and run it through G to get a fake batch
         z = torch.randn(self.batch_size, self.latent_size, 1, 1, device=DEVICE)
-        g_z = self.GEN(z)
+        fake = self.GEN(z)
+
         ## Run the real batch through D and compute D's real loss
-        d_x = self.DISC(x)
-        loss_d_x = self.criterion(d_x, torch.ones_like(d_x))
+        D_real = self.DISC(real)
+        loss_D_real = self.criterion(D_real, torch.ones_like(D_real))
+
         ## Run the fake batch through D and compute D's fake loss
-        d_g_z = self.DISC(g_z.detach())
-        loss_d_g_z = self.criterion(d_g_z, torch.zeros_like(d_g_z))
+        D_fake = self.DISC(fake.detach())
+        loss_D_fake = self.criterion(D_fake, torch.zeros_like(D_fake))
+
         ## Get D's total loss
-        loss_d = (loss_d_x + loss_d_g_z)/2
+        loss_D = (loss_D_real + loss_D_fake)/2
         ## Train D
         self.DISC.zero_grad()
-        loss_d.backward()
+        loss_D.backward()
         self.opt_disc.step()
+
         ## Rerun the fake batch through trained D, then train G
-        output = self.DISC(g_z)
-        loss_g = self.criterion(output, torch.ones_like(output))
+        Dp_fake = self.DISC(fake)
+        loss_G = self.criterion(Dp_fake, torch.ones_like(Dp_fake))
+        
         self.GEN.zero_grad()
-        loss_g.backward()
+        loss_G.backward()
         self.opt_gen.step()
+
+        return loss_G.item(), loss_D.item(), loss_D_real.item(), loss_D_fake.item()

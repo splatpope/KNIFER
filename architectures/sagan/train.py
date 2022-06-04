@@ -27,29 +27,35 @@ class SA_Trainer(BaseTrainer):
 
 #uses hinge loss
     def process_batch(self, value, labels):
-        x = value.to(DEVICE)
+        real = value.to(DEVICE)
         ## Get a batch of noise and run it through G to get a fake batch
         z = torch.randn(self.batch_size, self.latent_size, 1, 1, device=DEVICE)
-        g_z = self.GEN(z)
+        fake = self.GEN(z)
+
         ## Run the real batch through D and compute D's real loss
-        d_x = self.DISC(x)
-        loss_d_x = F.relu(1.0 - d_x).mean()
+        D_real = self.DISC(real)
+        loss_D_real = F.relu(1.0 - D_real).mean()
+
         ## Run the fake batch through D and compute D's fake loss
-        d_g_z = self.DISC(g_z.detach())
-        loss_d_g_z = F.relu(1.0 + d_g_z).mean()
+        D_fake = self.DISC(fake.detach())
+        loss_D_fake = F.relu(1.0 + D_fake).mean()
+
         ## Get D's total loss
-        loss_d = loss_d_x + loss_d_g_z
+        loss_D = loss_D_real + loss_D_fake
         ## Train D
         self.DISC.zero_grad()
-        loss_d.backward()
+        loss_D.backward()
         self.opt_disc.step()
 
         ## Rerun a fake batch through trained D, then train G
-        output = self.DISC(g_z)
-        loss_g = -output.mean()
+        Dp_fake = self.DISC(fake)
+        loss_G = -Dp_fake.mean()
+        
         self.GEN.zero_grad()
-        loss_g.backward()
+        loss_G.backward()
         self.opt_gen.step()
+
+        return loss_G.item(), loss_D.item(), loss_D_real.item(), loss_D_fake.item()
 
     @classmethod
     def get_required_params(cls):
