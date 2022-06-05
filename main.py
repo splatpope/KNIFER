@@ -8,15 +8,12 @@ from training import TrainingManager, KNIFER_ARCHS
 from metrics import FID
 
 def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int, save_step: int = 1, viz_step:int = 1):
-    experiment = manager.experiment_name
-    saves_dest = "./savestates/" + experiment
-    viz_dest = "./viz/" + experiment
     for i in range(n):
         manager.simple_train_loop(n_epochs)
         if (i+1) % save_step == 0:
-            manager.save(saves_dest)
+            manager.save()
         if (i+1) % viz_step == 0:
-            manager.synthetize_viz(viz_dest)
+            manager.synth_fixed()
 
 def build_manager(args, params):
     manager = TrainingManager(args.experiment, debug=True, parallel=args.parallel)
