@@ -144,6 +144,12 @@ class TrainingManager():
         # Get a random sample from the latent space in order to monitor qualitative progress
         self.fixed = self.trainer.get_fixed()
 
+        # Write params to TB everytime we setup the trainer, I guess
+        try:
+            self.logger.write_params(params)
+        except NoTBError as ntbe:
+            print(ntbe)
+
     # this function is only for usage with the GUI, which both need to be interruptible
     def proceed(self, data, batch_id):
         try:
@@ -194,7 +200,6 @@ class TrainingManager():
                 self.logger.write_stats()
                 self.trainer.GEN.eval()
                 self.synth_fixed(dest="tb")
-                self.logger.tbwriter.flush()
             except NoTBError as ntbe:
                 print(ntbe.message)
 

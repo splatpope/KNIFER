@@ -1,5 +1,6 @@
 
 from pathlib import Path
+import json
 
 from torch import save as chkpt_save, load as chkpt_load
 import torchvision.utils as vutils
@@ -41,6 +42,7 @@ class GANEpochLossMeter:
         writer.add_scalar('training_D/Discriminator_Loss_Total', self.loss_D.avg, epoch)
         writer.add_scalar('training_D/Discriminator_Loss_Real', self.loss_D_real.avg, epoch)
         writer.add_scalar('training_D/Discriminator_Loss_Fake', self.loss_D_fake.avg, epoch)
+        writer.flush()
 
     def __str__(self):
         return f"Loss G: {self.loss_G.avg} | Loss D (Total/Real/Fake) : {self.loss_D.avg} / {self.loss_D_real.avg} / {self.loss_D_fake.avg}"
@@ -64,6 +66,14 @@ class GANLogger():
         self.tbwriter = SummaryWriter(self.exp_path / "runs") if use_tensorboard else None
         self.epoch_stats = None
 
+    # call this once per experiment please
+    def write_params(self, params: dict):
+        if self.tbwriter:
+            self.tbwriter.add_text("hyperparameters", json.dumps(params), self.epoch)
+            self.tbwriter.flush()
+        else:
+            raise NoTBError
+
     def init_stats(self):
         self.epoch_stats = GANEpochLossMeter()
 
@@ -76,7 +86,7 @@ class GANLogger():
         if self.epoch_stats is None:
             raise AttributeError("Epoch statistics non-existant.")
         if self.tbwriter:
-            self.tbwriter.add_text("Epoch", f"{str(epoch)} {str(self.epoch_stats)}", epoch)
+            #self.tbwriter.add_text("Epoch", f"{str(epoch)} {str(self.epoch_stats)}", epoch)
             self.epoch_stats.write(self.tbwriter, epoch)
         else:
             raise NoTBError
@@ -90,6 +100,7 @@ class GANLogger():
                 raise NoTBError
             img_grid = vutils.make_grid(imgs)
             self.tbwriter.add_image('Generated_samples', img_grid, self.epoch)
+            self.tbwriter.flush()
         else:
             print("Tried to save images to somewhere else than storage or tensorboard.")
 
