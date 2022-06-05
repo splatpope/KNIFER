@@ -37,10 +37,10 @@ class GANEpochLossMeter:
         self.loss_D_fake.update(ldf)
 
     def write(self, writer: SummaryWriter, epoch: int):
-        writer.add_scalar('Generator_Loss', self.loss_G.avg, epoch)
-        writer.add_scalar('Discriminator_Loss_Total', self.loss_D.avg, epoch)
-        writer.add_scalar('Discriminator_Loss_Real', self.loss_D_real.avg, epoch)
-        writer.add_scalar('Discriminator_Loss_Fake', self.loss_D_fake.avg, epoch)
+        writer.add_scalar('training_G/Generator_Loss', self.loss_G.avg, epoch)
+        writer.add_scalar('training_D/Discriminator_Loss_Total', self.loss_D.avg, epoch)
+        writer.add_scalar('training_D/Discriminator_Loss_Real', self.loss_D_real.avg, epoch)
+        writer.add_scalar('training_D/Discriminator_Loss_Fake', self.loss_D_fake.avg, epoch)
 
     def __str__(self):
         return f"Loss G: {self.loss_G.avg} | Loss D (Total/Real/Fake) : {self.loss_D.avg} / {self.loss_D_real.avg} / {self.loss_D_fake.avg}"
@@ -50,11 +50,13 @@ class NoTBError(AttributeError):
         super().__init__("Trying to use tensorboard writer, but it was explicitly disabled.")
 
 class GANLogger():
-    def __init__(self, experiment, use_tensorboard=False):
+    def __init__(self, experiment, output, use_tensorboard=False):
         self.epoch = 0
 
+        self.output_path = Path(output)
+        make_folder(output)
         self.experiment = experiment
-        self.exp_path = Path("experiments") / experiment
+        self.exp_path = self.output_path / self.experiment
         make_folder(self.exp_path / "runs")
         make_folder(self.exp_path / "checkpoints")
         make_folder(self.exp_path / "samples")
@@ -74,7 +76,7 @@ class GANLogger():
         if self.epoch_stats is None:
             raise AttributeError("Epoch statistics non-existant.")
         if self.tbwriter:
-            self.tbwriter.add_text("Epoch", str(epoch), epoch)
+            self.tbwriter.add_text("Epoch", f"{str(epoch)} {str(self.epoch_stats)}", epoch)
             self.epoch_stats.write(self.tbwriter, epoch)
         else:
             raise NoTBError

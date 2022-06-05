@@ -1,5 +1,6 @@
 import argparse
 import json
+from gpg import Data
 # TODO : command line utility to supersede the GUI
 # kinda done, just needs a parser really
 import torch
@@ -16,7 +17,7 @@ def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int, save_st
             manager.synth_fixed()
 
 def build_manager(args, params):
-    manager = TrainingManager(args.experiment, debug=True, parallel=args.parallel)
+    manager = TrainingManager(args.experiment, args.output, debug=True, parallel=args.parallel)
     manager.set_dataset_folder(args.dataset)
     manager.set_trainer(params, num_workers=args.num_workers)
     return manager
@@ -35,6 +36,7 @@ if __name__ == '__main__':
 # Experiment parameters
     parser.add_argument("-c", "--config_file", type=str, help="Path to config file describing arch to use", required=True)
     parser.add_argument('--dataset', type=str, help="Path to dataset to load as an ImageFolder", required=True)
+    parser.add_argument("--output", default="./experiments", type=str, help="Path to which output is saved (i.e. experiment results : runs, checkpoints, samples")
     parser.add_argument('--experiment', type=str, help="Experiment name. Determines output folders", required=True)
     parser.add_argument('--num_workers', type=int, default=0, help="Amount of CPU workers to use for data loading")
     parser.add_argument('-p', '--parallel', action="store_true", help="Enable distributed GPU")
@@ -65,3 +67,23 @@ if __name__ == '__main__':
     p.update(arch_from_cfg(args.config_file))
     print(p)
     tm = build_manager(args, p)
+
+def get_FID(tm: TrainingManager):
+    from torch import randn
+    from torch.utils.data import DataLoader
+
+    BATCH_SIZE = 32
+    DIMS = 2048
+    DEVICE = 'CPU'
+
+    # make a 1000 fakes dataloader
+    fakes = tm.synth_fakes(1000)
+    fakes_dl = DataLoader(fakes, BATCH_SIZE, shuffle=True)
+
+    # make a 1000 reals dataloader
+
+    reals = DataLoader(tm.dataset, 1000, shuffle=True)
+    reals = next(iter(reals))[0]
+    reals = DataLoader(reals, BATCH_SIZE, shuffle=True)
+
+    return FID(reals, fakes, BATCH_SIZE, DIMS, DEVICE)

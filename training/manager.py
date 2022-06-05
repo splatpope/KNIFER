@@ -61,9 +61,10 @@ KNIFER_ARCHS = {
 ###################################################
 ## helper class to handle launching epochs, checkpointing, visualization
 class TrainingManager():
-    def __init__(self, experiment, debug=False, parallel=False, use_tensorboard=True):
+    def __init__(self, experiment, output, debug=False, parallel=False, use_tensorboard=True):
+        self.output_path = output
         self.experiment_name = experiment ## TODO : integrate in save format along with arch, but this gonna kill back compat
-        self.logger = GANLogger(experiment, use_tensorboard)
+        self.logger = GANLogger(experiment, output, use_tensorboard=use_tensorboard)
 
         self.epoch = 0
         self.checkpoint = None
@@ -139,6 +140,7 @@ class TrainingManager():
         # We are assuming that all arch trainers use the GEN and DISC names
         self._log(self.trainer.GEN)
         self._log(self.trainer.DISC)
+
         # Get a random sample from the latent space in order to monitor qualitative progress
         self.fixed = self.trainer.get_fixed()
 
@@ -192,8 +194,9 @@ class TrainingManager():
                 self.logger.write_stats()
                 self.trainer.GEN.eval()
                 self.synth_fixed(dest="tb")
-            except NoTBError:
-                pass
+                self.logger.tbwriter.flush()
+            except NoTBError as ntbe:
+                print(ntbe.message)
 
             self.checkpoint = self.trainer.serialize()
 
