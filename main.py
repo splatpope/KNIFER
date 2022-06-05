@@ -1,9 +1,8 @@
 import argparse
 import json
-from gpg import Data
+
 # TODO : command line utility to supersede the GUI
 # kinda done, just needs a parser really
-import torch
 from training import TrainingManager, KNIFER_ARCHS
 
 from metrics import FID
@@ -69,7 +68,6 @@ if __name__ == '__main__':
     tm = build_manager(args, p)
 
 def get_FID(tm: TrainingManager):
-    from torch import randn
     from torch.utils.data import DataLoader
 
     BATCH_SIZE = 32
@@ -84,6 +82,6 @@ def get_FID(tm: TrainingManager):
 
     reals = DataLoader(tm.dataset, 1000, shuffle=True)
     reals = next(iter(reals))[0]
-    reals = DataLoader(reals, BATCH_SIZE, shuffle=True)
+    reals_dl = DataLoader(reals, BATCH_SIZE, shuffle=True)
 
-    return FID(reals, fakes, BATCH_SIZE, DIMS, DEVICE)
+    return FID(reals_dl, fakes_dl, BATCH_SIZE, DIMS, DEVICE)
