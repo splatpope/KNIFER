@@ -166,7 +166,9 @@ class TrainingManager():
     # this function is more adapted to command line training
     def simple_train_loop(self, n_epochs=None, kimg=None):
         self.logger.init_stats() # to be safe
-
+        # Make sure that models are in train mode
+        self.trainer.GEN.train()
+        self.trainer.DISC.train()
         # Handle epochs or kiloimages.
         # Actually not used, but hey
         if not n_epochs and not kimg:
@@ -180,9 +182,7 @@ class TrainingManager():
 
         start_epoch = self.epoch
         for _ in range(n_epochs):
-            # Make sure that models are in train mode
-            self.trainer.GEN.train()
-            self.trainer.DISC.train()
+
             self.logger.init_stats() ## Reset loss averages
 
             self.epoch += 1
@@ -198,12 +198,15 @@ class TrainingManager():
 
             try:
                 self.logger.write_stats()
-                self.trainer.GEN.eval()
-                self.synth_fixed(dest="tb")
             except NoTBError as ntbe:
                 print(ntbe.message)
 
-            self.checkpoint = self.trainer.serialize()
+        self.checkpoint = self.trainer.serialize()
+        try:
+            self.trainer.GEN.eval()
+            self.synth_fixed(dest="tb")
+        except NoTBError as ntbe:
+            print(ntbe.message)
 
     def synth_fakes(self, n=1, z=None):
         if z is None:
