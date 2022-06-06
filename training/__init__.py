@@ -1,1 +1,2 @@
-from .manager import TrainingManager, KNIFER_ARCHS
+from . manager import TrainingManager
+from . trainer import GANTrainer

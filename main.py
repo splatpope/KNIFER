@@ -3,7 +3,7 @@ import json
 
 # TODO : command line utility to supersede the GUI
 # kinda done, just needs a parser really
-from training import TrainingManager, KNIFER_ARCHS
+from training import TrainingManager
 
 from metrics import FID
 
@@ -49,6 +49,7 @@ if __name__ == '__main__':
     # WGAN related parameters
     parser.add_argument('--critic_iters', default=5, type=int, help="(WGAN) Discriminator update factor")
     parser.add_argument('--lambda_gp', default=10, type=int, help="(WGAN+GP) Lambda factor for gradient penalty")
+    parser.add_argument('--use_sr', action="store_true", help="Use Spectral Regularization (warning : makes liberal use of SVD")
 
     args = parser.parse_args()
     p = {
@@ -60,12 +61,14 @@ if __name__ == '__main__':
         "b2": args.b2,
         "critic_iters": args.critic_iters,
         "lambda_gp": args.lambda_gp,
+        "use_sr": args.use_sr,
     }
 
     print(args)
     p.update(arch_from_cfg(args.config_file))
-    print(p)
+
     tm = build_manager(args, p)
+    print(p)
 
 def get_FID(tm: TrainingManager):
     from torch.utils.data import DataLoader

@@ -9,9 +9,10 @@ from torch.utils import data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 
+from . trainer import GANTrainer
 from . logging import GANLogger, NoTBError
 
-from architectures.common import BaseTrainer, doubling_arch_builder
+from architectures.common import doubling_arch_builder
 
 #from . dataset import batch_mean_and_sd
 
@@ -49,16 +50,6 @@ def structure_check(p):
         p["upscales"] = s
         p["downscales"] = s
 
-
-from architectures import *
-###################################################
-KNIFER_ARCHS = {
-    "DCGAN": DC_Trainer_default,
-    "WGAN_GP": WGP_Trainer_default,
-    "SAGAN": SA_Trainer_default,
-    "SAGAN_WGP": SA_WGP_Trainer_default,
-}
-###################################################
 ## helper class to handle launching epochs, checkpointing, visualization
 class TrainingManager():
     def __init__(self, experiment, output, debug=False, parallel=False, use_tensorboard=True):
@@ -70,7 +61,6 @@ class TrainingManager():
         self.checkpoint = None
         self.dataset_folder = None
         self.debug = debug
-
         self.parallel = parallel
 
     def _log(self, *args, **kwargs):
@@ -115,28 +105,21 @@ class TrainingManager():
             assert isinstance(premade, data.Dataset)
             self.dataset = premade
 
-        # Is the architecture provided actually present ?
-        try:
-            arch_to_go: BaseTrainer = KNIFER_ARCHS[arch](params) ## Get the chosen architecture class, mangling parameters if needed
-        except KeyError as e:
-            print(f"Architecture {e.args[0]} not found. Please provide an architecture present in KNIFER_ARCHS.")
-        
         # Trainer init 
         try:
-            self.trainer: BaseTrainer = arch_to_go(self.dataset, params, num_workers)
+            self.trainer = GANTrainer(self.dataset, params, num_workers=num_workers)
         # If any parameter is missing, the relevant error should rise here
         except KeyError as e:
-            print(f"Parameter {e.args[0]} required by {arch}.")
+            print(f"Parameter {e.args[0]} missing.")
         except Exception:
             raise
 
         if not self.trainer:
             print("Trainer initialization failed.")
-            return
+            return False
 
         if self.parallel:
-            self.trainer.GEN = torch.nn.DataParallel(self.trainer.GEN)
-            self.trainer.DISC = torch.nn.DataParallel(self.trainer.DISC)
+            self.trainer.parallelize()
         # We are assuming that all arch trainers use the GEN and DISC names
         self._log(self.trainer.GEN)
         self._log(self.trainer.DISC)
@@ -149,6 +132,8 @@ class TrainingManager():
             self.logger.write_params(params)
         except NoTBError as ntbe:
             print(ntbe)
+
+        return True
 
     # this function is only for usage with the GUI, which both need to be interruptible
     def proceed(self, data, batch_id):
