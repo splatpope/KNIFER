@@ -9,10 +9,13 @@ from torch.utils import data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 
-from . trainer import GANTrainer
-from . logging import GANLogger, NoTBError
+from torchinfo import summary
 
 from architectures.common import doubling_arch_builder
+from metrics import FID
+
+from . trainer import GANTrainer
+from . logging import GANLogger, NoTBError
 
 #from . dataset import batch_mean_and_sd
 
@@ -110,7 +113,7 @@ class TrainingManager():
             self.trainer = GANTrainer(self.dataset, params, num_workers=num_workers)
         # If any parameter is missing, the relevant error should rise here
         except KeyError as e:
-            print(f"Parameter {e.args[0]} missing.")
+            print(f"Parameter {e.args[0]} wrong or missing.")
         except Exception:
             raise
 
@@ -249,3 +252,53 @@ class TrainingManager():
         epoch = self.epoch
         timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M')
         return f"{arch}_{timestamp}_{epoch}"
+
+    def produce_FID(self, device='cpu'):
+        from torch.utils.data import DataLoader
+
+        BATCH_SIZE = 32
+        DIMS = 2048
+        DEVICE = device ## As GPU might very well be crowded
+
+        # make a 1000 fakes dataloader
+        fakes = self.synth_fakes(1000)
+        fakes_dl = DataLoader(fakes, BATCH_SIZE, shuffle=True)
+
+        # make a 1000 reals dataloader
+        reals = DataLoader(self.dataset, 1000, shuffle=True)
+        reals = next(iter(reals))[0]
+        reals_dl = DataLoader(reals, BATCH_SIZE, shuffle=True)
+
+        fid = FID(reals_dl, fakes_dl, BATCH_SIZE, DIMS, DEVICE)
+        self._log(fid)
+        try:
+            self.logger.write_FID(fid, self.epoch)
+        except NoTBError as ntbe:
+            print(ntbe.message)
+        
+        return fid
+
+    def model_summaries(self, depth=3, verbose=1):
+        DEVICE = "cuda" if torch.cuda.is_available() else 'cpu'
+        N_CHANNELS = self.trainer.channels
+        LATENT_SIZE = self.trainer.latent_size
+        IMG_SIZE = self.trainer.img_size
+        BATCH_SIZE = self.trainer.batch_size
+
+        GEN_INPUT_SHAPE = (BATCH_SIZE, LATENT_SIZE, 1, 1)
+        DISC_INPUT_SHAPE = (BATCH_SIZE, N_CHANNELS, IMG_SIZE, IMG_SIZE)
+        
+        print("\nGenerator :")
+        summary(model=self.trainer.GEN, 
+            input_size=GEN_INPUT_SHAPE,
+            depth=depth,
+            device=DEVICE,
+            verbose=verbose,
+        )
+        print("\nDiscriminator :")
+        summary(model=self.trainer.DISC,
+            input_size=DISC_INPUT_SHAPE,
+            depth=depth,
+            device=DEVICE,
+            verbose=verbose,
+        )

@@ -1,6 +1,7 @@
 
 from pathlib import Path
 import json
+from tkinter import E
 
 from torch import save as chkpt_save, load as chkpt_load
 import torchvision.utils as vutils
@@ -90,6 +91,14 @@ class GANLogger():
             self.epoch_stats.write(self.tbwriter, epoch)
         else:
             raise NoTBError
+
+    def write_FID(self, FID, epoch=None):
+        epoch = epoch or self.epoch
+
+        if self.tbwriter:
+            self.tbwriter.add_scalar("perf/FID", FID, epoch)
+        else:
+            NoTBError
 
     def save_samples(self, imgs, dest="storage"):
         if dest == "storage":

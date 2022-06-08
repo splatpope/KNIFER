@@ -1,19 +1,24 @@
 import argparse
 import json
+import sys
 
 # TODO : command line utility to supersede the GUI
 # kinda done, just needs a parser really
 from training import TrainingManager
 
-from metrics import FID
-
-def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int, save_step: int = 1, viz_step:int = 1):
+def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int, 
+        save_step: int = sys.maxsize, 
+        viz_step: int = sys.maxsize, 
+        FID_step: int = sys.maxsize,
+    ):
     for i in range(n):
         manager.simple_train_loop(n_epochs)
         if (i+1) % save_step == 0:
             manager.save()
         if (i+1) % viz_step == 0:
             manager.synth_fixed()
+        if (i+1) % FID_step == 0:
+            manager.produce_FID()
 
 def build_manager(args, params):
     manager = TrainingManager(args.experiment, args.output, debug=True, parallel=args.parallel)
@@ -69,22 +74,3 @@ if __name__ == '__main__':
 
     tm = build_manager(args, p)
     print(p)
-
-def get_FID(tm: TrainingManager):
-    from torch.utils.data import DataLoader
-
-    BATCH_SIZE = 32
-    DIMS = 2048
-    DEVICE = 'CPU'
-
-    # make a 1000 fakes dataloader
-    fakes = tm.synth_fakes(1000)
-    fakes_dl = DataLoader(fakes, BATCH_SIZE, shuffle=True)
-
-    # make a 1000 reals dataloader
-
-    reals = DataLoader(tm.dataset, 1000, shuffle=True)
-    reals = next(iter(reals))[0]
-    reals_dl = DataLoader(reals, BATCH_SIZE, shuffle=True)
-
-    return FID(reals_dl, fakes_dl, BATCH_SIZE, DIMS, DEVICE)
