@@ -21,7 +21,13 @@ def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int,
             manager.produce_FID()
 
 def build_manager(args, params):
-    manager = TrainingManager(args.experiment, args.output, debug=True, parallel=args.parallel)
+    manager = TrainingManager(
+        args.experiment, 
+        args.output, 
+        debug=True, 
+        parallel=args.parallel,
+        use_tensorboard=args.use_tb,
+    )
     manager.set_dataset_folder(args.dataset)
     manager.set_trainer(params, num_workers=args.num_workers)
     return manager
@@ -55,7 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--critic_iters', default=5, type=int, help="(WGAN) Discriminator update factor")
     parser.add_argument('--lambda_gp', default=10, type=int, help="(WGAN+GP) Lambda factor for gradient penalty")
     parser.add_argument('--use_sr', action="store_true", help="Use Spectral Regularization (warning : makes liberal use of SVD")
-
+    parser.add_argument('--use_tb', action="store_true", help="Enable tensorboard logging")
     args = parser.parse_args()
     p = {
         "batch_size": args.batch_size,
