@@ -148,13 +148,13 @@ class GANTrainer():
             self.highest_sigmas = {}
             for name, m in self.DISC.named_modules():
                 if isinstance(m, nn.Conv2d):
-                    W = m.weight.data.reshape(m.weight.shape[0], -1).to('cpu')
+                    W = m.weight.data.reshape(m.weight.shape[0], -1)#.to('cpu')
                     s = torch.linalg.svdvals(W)
                     self.highest_sigmas[name] = s/max(s)
         else:
             for name, m in self.DISC.named_modules():
                 if isinstance(m, nn.Conv2d):
-                    W = m.weight.data.reshape(m.weight.shape[0], -1).to('cpu')
+                    W = m.weight.data.reshape(m.weight.shape[0], -1)#.to('cpu')
                     U, s, V = torch.linalg.svd(W, full_matrices=False)
                     s1 = max(s)
                     s = s / s1
