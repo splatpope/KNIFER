@@ -61,7 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--critic_iters', default=5, type=int, help="(WGAN) Discriminator update factor")
     parser.add_argument('--lambda_gp', default=10, type=int, help="(WGAN+GP) Lambda factor for gradient penalty")
     parser.add_argument('--use_sr', action="store_true", help="Use Spectral Regularization (warning : makes liberal use of SVD")
-    parser.add_argument('--use_tb', action="store_true", help="Enable tensorboard logging")
+    parser.add_argument('--use_tb', action="store_false", help="Enable tensorboard logging")
     args = parser.parse_args()
     p = {
         "batch_size": args.batch_size,

@@ -187,14 +187,14 @@ class TrainingManager():
             try:
                 self.logger.write_stats()
             except NoTBError as ntbe:
-                print(ntbe.message)
+                print(ntbe)
 
         self.checkpoint = self.trainer.serialize()
         try:
             self.trainer.GEN.eval()
             self.synth_fixed(dest="tb")
         except NoTBError as ntbe:
-            print(ntbe.message)
+            print(ntbe)
 
     def synth_fakes(self, n=1, z=None):
         if z is None:
@@ -274,7 +274,7 @@ class TrainingManager():
         try:
             self.logger.write_FID(fid, self.epoch)
         except NoTBError as ntbe:
-            print(ntbe.message)
+            print(ntbe)
         
         return fid
 
