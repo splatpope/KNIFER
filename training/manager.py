@@ -43,8 +43,7 @@ def lr_check(p):
     if "lr_d" not in p and "lr_g" in p:
         p["lr_d"] = p["lr_g"]
 
-# TODO : actually make sure that the inputs are coherent
-# when not generating them
+# TODO : when there is support for first upscale/downscale =/= 4, check it here
 def structure_check(p):
     if not p.keys() >= {"features_d", "features_g", "upscales", "downscales"}:
         s, fg, fd = doubling_arch_builder(p["img_size"], p["features"])
@@ -52,6 +51,11 @@ def structure_check(p):
         p["features_d"] = fd
         p["upscales"] = s
         p["downscales"] = s
+    else:
+        from math import prod
+        img_size = p["img_size"]
+        assert prod(p["upscales"])*4 == img_size, "Upscales list doesn't produce image_size"
+        assert prod(p["downscales"])*4 == img_size, "Downscales list doesn't reduce image_size"
 
 ## helper class to handle launching epochs, checkpointing, visualization
 class TrainingManager():
