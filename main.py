@@ -12,12 +12,16 @@ def run_manager_n_times(manager: TrainingManager, n: int, n_epochs: int,
         FID_step: int = sys.maxsize,
     ):
     for i in range(n):
+        print(f"main.py rmnt {i}/{n}: running simple_train_loop...")
         manager.simple_train_loop(n_epochs)
         if (i+1) % save_step == 0:
+            print(f"main.py rmnt {i}/{n}: saving...")
             manager.save()
         if (i+1) % viz_step == 0:
+            print(f"main.py rmnt {i}/{n}: writing fakes...")
             manager.synth_fixed()
         if (i+1) % FID_step == 0:
+            print(f"main.py rmnt {i}/{n}: calculating FID...")
             manager.produce_FID()
 
 def build_manager(args, params):
