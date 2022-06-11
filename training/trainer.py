@@ -145,25 +145,25 @@ class GANTrainer():
 
     def spectral_regularization(self):
         with torch.no_grad():
-        if self.highest_sigmas is None:
-            self.highest_sigmas = {}
-            for name, m in self.DISC.named_modules():
-                if isinstance(m, nn.Conv2d):
-                    W = m.weight.data.reshape(m.weight.shape[0], -1)#.to('cpu')
-                    s = torch.linalg.svdvals(W)
-                    self.highest_sigmas[name] = s/max(s)
-        else:
-            for name, m in self.DISC.named_modules():
-                if isinstance(m, nn.Conv2d):
-                    W = m.weight.data.reshape(m.weight.shape[0], -1)#.to('cpu')
-                    U, s, V = torch.linalg.svd(W, full_matrices=False)
-                    s1 = max(s)
-                    s = s / s1
-                    self.highest_sigmas[name] = torch.maximum(s, self.highest_sigmas[name])
-                    new_s = s1 * self.highest_sigmas[name]
-                    S = torch.diag(new_s)
-                    W = U @ S @ V
-                    m.weight.data = W.reshape(m.weight.shape)
+            if self.highest_sigmas is None:
+                self.highest_sigmas = {}
+                for name, m in self.DISC.named_modules():
+                    if isinstance(m, nn.Conv2d):
+                        W = m.weight.data.reshape(m.weight.shape[0], -1)#.to('cpu')
+                        s = torch.linalg.svdvals(W)
+                        self.highest_sigmas[name] = s/max(s)
+            else:
+                for name, m in self.DISC.named_modules():
+                    if isinstance(m, nn.Conv2d):
+                        W = m.weight.data.reshape(m.weight.shape[0], -1)#.to('cpu')
+                        U, s, V = torch.linalg.svd(W, full_matrices=False)
+                        s1 = max(s)
+                        s = s / s1
+                        self.highest_sigmas[name] = torch.maximum(s, self.highest_sigmas[name])
+                        new_s = s1 * self.highest_sigmas[name]
+                        S = torch.diag(new_s)
+                        W = U @ S @ V
+                        m.weight.data = W.reshape(m.weight.shape)
 
     @classmethod
     def get_required_params(cls):
