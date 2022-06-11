@@ -144,6 +144,7 @@ class GANTrainer():
         return loss_G.item(), loss_D.item(), loss_D_real_val, loss_D_fake_val
 
     def spectral_regularization(self):
+        with torch.no_grad():
         if self.highest_sigmas is None:
             self.highest_sigmas = {}
             for name, m in self.DISC.named_modules():
