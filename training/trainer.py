@@ -120,6 +120,9 @@ class GANTrainer():
         loss_D.backward()
         self.opt_disc.step()
 
+        if self.use_SR:
+            self.spectral_regularization()
+
         self.opt_gen.zero_grad() ## Just in case
 
         ## Train G
@@ -137,14 +140,12 @@ class GANTrainer():
         loss_G.backward()
         self.opt_gen.step()
 
-        if self.use_SR:
-            self.spectral_regularization()
+
 
         # Produce loss report
         return loss_G.item(), loss_D.item(), loss_D_real_val, loss_D_fake_val
 
     def spectral_regularization(self):
-        # TODO : test if W should explicitly be a copy and not a view
         with torch.no_grad():
             if self.highest_sigmas is None:
                 self.highest_sigmas = {}
