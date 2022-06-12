@@ -3,6 +3,7 @@ import glob
 import gc
 import os
 from pathlib import Path
+import contextlib
 
 import torch
 from torch.utils import data
@@ -57,6 +58,7 @@ def structure_check(p):
         assert prod(p["upscales"])*4 == img_size, "Upscales list doesn't produce image_size"
         assert prod(p["downscales"])*4 == img_size, "Downscales list doesn't reduce image_size"
 
+# TODO : profiler
 ## helper class to handle launching epochs, checkpointing, visualization
 class TrainingManager():
     def __init__(self, experiment, output, debug=False, parallel=False, use_tensorboard=True):
@@ -156,6 +158,8 @@ class TrainingManager():
             return 0
 
     # this function is more adapted to command line training
+    # not so simple anymore, i'm proud of you son
+    # TODO : turn it into plain cli_train_loop
     def simple_train_loop(self, n_epochs=None, kimg=None):
         self.logger.init_stats() # to be safe
         # Make sure that models are in train mode
