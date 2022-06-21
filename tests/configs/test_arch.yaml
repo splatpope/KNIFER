@@ -30,6 +30,7 @@ disc:
       - down2 64 128 sn
       - inorm
       - lrelu 0.2 inplace
+      - attn
     - 
       - down2 128 256 sn
       - inorm

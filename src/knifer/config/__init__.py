@@ -4,11 +4,6 @@ import yaml
 from . definitions import decode_block_definition
 from . import params as P
 
-@dataclass
-class KNIFERConfig():
-    arch: P.ArchParameters
-    trainer: P.UpdaterParameters
-
 def training_param_from_dict(trainer_cfg: dict) -> P.UpdaterParameters:
     #### Trainer ####
     opt_g = trainer_cfg["opt_g"]

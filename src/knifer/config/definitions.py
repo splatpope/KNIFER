@@ -4,8 +4,12 @@ import torch.nn as nn
 
 from knifer.misc_utils import str_is_float
 
-nn_classes = {k.lower():v for k,v in vars(nn).items() if isinstance(v, type)}
-## YOU KNOW WHERE THIS IS GOING
+nn_classes = {k.lower():v for k,v in vars(nn).items() if inspect.isclass(v)}
+nn_aliases = {
+    "bn2": "batchnorm2d",
+    "in2": "instancenorm2d",
+    "lrelu": "leakyrelu",
+}
 
 def conv_layer_definition(nature: str, factor: int):
     match nature:

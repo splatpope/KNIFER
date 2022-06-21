@@ -7,6 +7,10 @@ def set_arch(arch: kfarch.GANArch):
     global ARCH
     ARCH = arch
 
+def set_logger(logger: kflog.GANLogger):
+    global LOGGER
+    LOGGER = logger
+
 def set_updater(updater: kfupd.GANUpdater):
     if ARCH is None:
         raise ValueError
@@ -24,12 +28,6 @@ def is_complete():
         'ARCH',
         'UPDATER',
         'DATA',
+        'LOGGER',
     ]
     return all([var in globals() for var in components])
-
-def set_logger(logger: kflog.GANLogger):
-    if not is_complete():
-        raise ValueError
-    global LOGGER
-    LOGGER = logger
-
