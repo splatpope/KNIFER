@@ -1,0 +1,42 @@
+--- # img size 64
+gen:
+  layers:
+    - 
+      - decode4 8 256
+      - bnorm
+      - relu inplace
+    -
+      - up2 256 256
+      - bnorm
+      - relu inplace
+    - 
+      - up2 256 128
+      - bnorm
+      - relu inplace
+    - 
+      - up2 128 64
+      - bnorm
+      - relu inplace
+      - attn
+    - 
+      - up2 64 3
+      - tanh
+disc:
+  layers:
+    - 
+      - down2 3 64 sn
+      - lrelu 0.2 inplace
+    - 
+      - down2 64 128 sn
+      - inorm
+      - lrelu 0.2 inplace
+    - 
+      - down2 128 256 sn
+      - inorm
+      - lrelu 0.2 inplace
+    -
+      - down2 256 256 sn
+      - inorm
+      - lrelu 0.2 inplace
+    - 
+      - score4 256 1
