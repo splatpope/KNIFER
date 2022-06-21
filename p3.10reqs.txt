@@ -8,7 +8,6 @@ google-auth-oauthlib==0.4.6
 grpcio==1.46.3
 idna==3.3
 iniconfig==1.1.1
--e git+ssh://git@github.com/splatpope/KNIFER.git@1f25b54048741dbc375329f59e027a987e22f851#egg=knifer
 Markdown==3.3.7
 numpy==1.22.4
 oauthlib==3.2.0
