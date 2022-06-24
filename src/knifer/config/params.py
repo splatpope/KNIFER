@@ -29,7 +29,7 @@ class OptimParameters():
 
 @dataclass
 class AdamParameters(OptimParameters):
-    betas: list[float]
+    betas: "list[float]"
     weight_decay: float=0.0
 
     def __call__(self, model:nn.Module):
@@ -73,7 +73,7 @@ class TrainingParameters():
     synth_steps: int = sys.maxsize
     save_steps: int = sys.maxsize
     metrics_steps: int = sys.maxsize
-    metrics: list[str] = None
+    metrics: "list[str]" = None
 
 ## TODO : make it so that params are saved in the context for information purposes
 ## TODO : learning rate scheduling...
