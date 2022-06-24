@@ -3,16 +3,25 @@ import torch
 import torch.nn as nn
 
 from knifer.config import params as P
-from . modules import ConvBlock
 
 class GANModel(nn.Module):
     def __init__(self, params: P.ModelParameters):
         super().__init__()
-        blocks = [ConvBlock(block_params) for block_params in params.blocks]
-        self.blocks = nn.Sequential(*blocks)
+        if isinstance(params.blocks, nn.ModuleList):
+            self.blocks = nn.Sequential(*params.blocks)
+        else:
+            self.blocks = params.blocks
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return self.blocks(input)
+
+def conv_in_sequential(target: nn.Sequential):
+    for m in target:
+        if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
+            return m
+
+def first_conv_in_model(target: GANModel):
+    return conv_in_sequential(target.blocks[0])
 
 @dataclass
 class GANArch():
@@ -21,13 +30,11 @@ class GANArch():
 
     @property
     def latent_size(self) -> int:
-        first_gen_block: ConvBlock = self.gen.blocks[0]
-        return first_gen_block.conv.in_channels
+        return first_conv_in_model(self.gen).in_channels
 
     @property
     def img_channels(self) -> int:
-        first_disc_block: ConvBlock = self.disc.blocks[0]
-        return first_disc_block.conv.in_channels
+        return first_conv_in_model(self.disc).in_channels
 
     def serialize(self):
         return {

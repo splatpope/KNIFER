@@ -9,51 +9,38 @@ from knifer.config import params as P
 def NOOP(x):
     return x
 
-class ConvBlock(nn.Module):
-    def __init__(self, params: P.ConvBlockParameters):
-        super().__init__()
-        self.conv: Union[nn.Conv2d, nn.ConvTranspose2d] = params.conv_module(
-            in_channels=params.in_channels,
-            out_channels=params.out_channels,
-            kernel_size=params.kernel_size,
-            stride=params.stride,
-            padding=params.padding,
-            bias=not isinstance(params.norm_layer, nn.BatchNorm2d),
-        )
-        if params.spectral_norm:
-            self.conv = spectral_norm(self.conv)
-
-        self.norm = params.norm_layer(params.out_channels) if params.norm_layer else NOOP
-        self.act_fn = params.activation if params.activation else NOOP
-        self.attn = Attention(params.out_channels) if params.self_attention else NOOP
-        
-    def forward(self, input):
-        out = self.conv(input)
-        out = self.norm(out)
-        out = self.act_fn(out)
-        out = self.attn(out)
-        return out
-    
 class UpKConv(nn.ConvTranspose2d):
-    def __init__(self, factor:int, *args, **kwargs):
+    def __init__(self, in_channels:int, out_channels:int, factor:int, **kwargs):
+        self.factor = factor
         super().__init__(
+            in_channels,
+            out_channels,
             kernel_size=2*factor,
             stride=factor,
             padding=factor//2,
-            *args, **kwargs,
+            **kwargs,
         )
+    def extra_repr(self):
+        s = '{in_channels}, {out_channels}, factor={factor}'
+        return s.format(**self.__dict__)
 
 class DownKConv(nn.Conv2d):
-    def __init__(self, factor:int, *args, **kwargs):
+    def __init__(self, in_channels:int, out_channels:int, factor:int, **kwargs):
+        self.factor = factor
         super().__init__(
+            in_channels,
+            out_channels,
             kernel_size=2*factor,
             stride=factor,
             padding=factor//2,
-            *args, **kwargs,
+            **kwargs,
         )
+    def extra_repr(self):
+        s = '{in_channels}, {out_channels}, factor={factor}'
+        return s.format(**self.__dict__)
 
 class Attention(nn.Module):
-    def __init__(self, channels):
+    def __init__(self, channels:int):
         super().__init__()
         self.channels = channels
         self.theta = nn.Conv2d(channels, channels//8, 1, bias=False)

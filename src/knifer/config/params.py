@@ -9,26 +9,12 @@ import torchvision.transforms as transforms
 
 #### Architecture definition ####
 
-@dataclass
-class ConvBlockParameters():
-    conv_module: Union[nn.Conv2d, nn.ConvTranspose2d]
-    in_channels: int
-    out_channels: int
-    kernel_size: int
-    stride: int 
-    padding: int
-    spectral_norm: bool
-    norm_layer: Union[nn.BatchNorm2d, nn.InstanceNorm2d]
-    activation: Union[nn.ReLU, nn.LeakyReLU, nn.Tanh, nn.Sigmoid]
-    self_attention: bool
-
 @dataclass()
 class ModelParameters():
-    blocks: list[ConvBlockParameters]
+    blocks: Union[nn.Sequential, nn.ModuleList]
 
 @dataclass
 class ArchParameters():
-    latent_size: int
     gen: ModelParameters
     disc: ModelParameters
 
@@ -54,7 +40,7 @@ class AdamParameters(OptimParameters):
                 weight_decay = self.weight_decay,
             )
 
-@dataclass
+@dataclass ## TODO : take care of all this like with models
 class UpdaterParameters():
     batch_size: int
     opt_G: OptimParameters
@@ -88,3 +74,6 @@ class TrainingParameters():
     save_steps: int = sys.maxsize
     metrics_steps: int = sys.maxsize
     metrics: list[str] = None
+
+## TODO : make it so that params are saved in the context for information purposes
+## TODO : learning rate scheduling...

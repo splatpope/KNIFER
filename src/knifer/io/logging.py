@@ -124,3 +124,6 @@ class GANLogger():
     def load_checkpoint(self, path) -> dict:
         path = Path(path) # path
         return chkpt_load(path)
+
+    def __call__(self) -> logging.Logger:
+        return logging.getLogger("knifer")

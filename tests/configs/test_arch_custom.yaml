@@ -1,0 +1,37 @@
+--- # img size 64
+defines:
+  LS: 8
+  IMG_CH: 3
+  SCF: 4
+kwarg_defaults:
+  relu: 
+    inplace: True
+  lrelu:
+    negative_slope: 0.2
+    inplace: True
+#### Models ####
+gen:
+  - |
+    convtranspose2d $LS 256 $SCF
+    bn2 256
+    relu
+  - |
+    upkconv 256 128 2
+    apply sn
+    bn2 128
+    relu
+  - |
+    upkconv 128 $IMG_CH 4
+    tanh
+disc:
+  - | 
+    downkconv $IMG_CH 128 4
+    in2 128
+    lrelu
+  - |
+    downkconv 128 256 2
+    in2 256
+    lrelu
+  - |
+    conv2d 256 1 $SCF
+    
