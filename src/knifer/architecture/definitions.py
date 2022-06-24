@@ -53,7 +53,7 @@ def substitute_macros(expression:str, defines: dict) -> str:
         raise MacroUndefinedError
     return expression
 
-def handle_applicables(fn_names: list[str], target: nn.Module):
+def handle_applicables(fn_names: "list[str]", target: nn.Module):
     fn_names = [APPLICABLES_ALIASES.get(n, n) for n in fn_names]
     functions = [APPLICABLES[n] for n in fn_names]
 
