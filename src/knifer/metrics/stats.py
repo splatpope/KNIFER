@@ -44,7 +44,7 @@ class GANEpochLossMeter():
         self.loss_D_fake = AverageMeter()
 
     @property
-    def meters(self) -> list[AverageMeter]:
+    def meters(self) -> "list[AverageMeter]":
         return [m for m in vars(self).values()]
 
     def reset(self):
