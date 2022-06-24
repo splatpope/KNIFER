@@ -12,7 +12,7 @@ from knifer.misc_utils import gradient_penalty
 class BaseGANLoss():
     def __init__(self, device:str='cpu'):
         self.device = device
-    def D(self, D_real: torch.Tensor, D_fake: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def D(self, D_real: torch.Tensor, D_fake: torch.Tensor) -> "tuple[torch.Tensor, torch.Tensor, torch.Tensor]":
         raise NotImplementedError
     def G(self, D_fake: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
