@@ -35,7 +35,7 @@ APPLICABLES_ALIASES = {
 }
 
 Arg2DInt = typing.Tuple[int, int]
-ArgIntOr2DInt = int | Arg2DInt
+ArgIntOr2DInt = typing.Union[int,Arg2DInt]
 
 class MacroUndefinedError(ValueError):
     pass
