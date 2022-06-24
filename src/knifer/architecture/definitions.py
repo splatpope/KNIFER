@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.utils.parametrizations as nnP
 
 from . import modules as kfm
+from . import applicables as kfapps
 from knifer.misc_utils import str_is_float
 
 NN_MODULES = {k.lower():v for k,v in vars(nn).items() if inspect.isclass(v)}
@@ -23,7 +24,7 @@ ALL_ALIASES = NN_ALIASES | KF_ALIASES
 
 # TODO : this should be defines in arch.applicables
 APPLICABLES = {
-    "spectralnorm": nnP.spectral_norm,
+    "spectralnorm": kfapps.spectral_norm,
 }
 APPLICABLES_ALIASES = {
     "sn": "spectralnorm"
