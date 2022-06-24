@@ -17,7 +17,7 @@ except ImportError:
     def tqdm(x):
         return x
 
-from metrics.inception import InceptionV3
+from . inception import InceptionV3
 
 BATCH_SIZE = 32
 DIMS = 2048

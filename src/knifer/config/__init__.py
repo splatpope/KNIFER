@@ -32,17 +32,15 @@ def arch_param_from_dict(arch_cfg: dict) -> P.ArchParameters:
     """ Create architecture parameters from a dictionnary. """
     gen_def = arch_cfg["gen"]
     disc_def = arch_cfg["disc"]
+    defines = arch_cfg["defines"]
+    kwarg_defaults = arch_cfg["kwarg_defaults"]
 
-    gen_blocks = [decode_block(block_def) for block_def in gen_def]
-    disc_blocks = [decode_block(block_def) for block_def in disc_def]
-
-    gen_block_params = [P.ConvBlockParameters(**block) for block in gen_blocks]
-    disc_block_params = [P.ConvBlockParameters(**block) for block in disc_blocks]
+    gen_blocks = [decode_block_definition(block_def, defines, kwarg_defaults) for block_def in gen_def]
+    disc_blocks = [decode_block_definition(block_def, defines, kwarg_defaults) for block_def in disc_def]
 
     arch_params = {
-        "latent_size": gen_block_params[0].in_channels,
-        "gen": P.ModelParameters(gen_block_params),
-        "disc": P.ModelParameters(disc_block_params)
+        "gen": P.ModelParameters(gen_blocks),
+        "disc": P.ModelParameters(disc_blocks),
     }
 
     return P.ArchParameters(**arch_params)

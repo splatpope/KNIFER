@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import reduce
 import torch
 import torch.nn as nn
 
@@ -7,13 +8,11 @@ from knifer.config import params as P
 class GANModel(nn.Module):
     def __init__(self, params: P.ModelParameters):
         super().__init__()
-        if isinstance(params.blocks, nn.ModuleList):
-            self.blocks = nn.Sequential(*params.blocks)
-        else:
-            self.blocks = params.blocks
+        self.blocks = nn.Sequential(*params.blocks)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return self.blocks(input)
+
 
 def conv_in_sequential(target: nn.Sequential):
     for m in target:

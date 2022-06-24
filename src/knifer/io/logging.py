@@ -1,4 +1,3 @@
-
 from pathlib import Path
 import logging
 import json
@@ -7,59 +6,12 @@ from torch import save as chkpt_save, load as chkpt_load
 import torchvision.utils as vutils
 from torch.utils.tensorboard import SummaryWriter
 
+from knifer.metrics.stats import GANEpochLossMeter
 from knifer.misc_utils import make_folder
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger("knifer")
 LOGGER.setLevel(logging.INFO)
-
-class AverageMeter:
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-
-class GANEpochLossMeter():
-    def __init__(self):
-        self.loss_G = AverageMeter()
-        self.loss_D = AverageMeter()
-        self.loss_D_real = AverageMeter()
-        self.loss_D_fake = AverageMeter()
-
-    @property
-    def meters(self) -> list[AverageMeter]:
-        return [m for m in vars(self).values()]
-
-    def reset(self):
-        [m.reset() for m in self.meters]
-
-    def update(self, vals, n=1):
-        if len(vals) != len(self.meters):
-            raise ValueError
-        [m.update(v,n) for m,v in zip(self.meters, vals)]
-
-    def tbwrite(self, writer:SummaryWriter, epoch):
-        loss_dict_D = {
-            "D_total": self.loss_D.avg,
-            "D_real": self.loss_D_real.avg,
-            "D_fake": self.loss_D_fake.avg,
-        }
-        [writer.add_scalar("Losses/"+k, v, global_step=epoch) for k,v in loss_dict_D.items()]
-        writer.add_scalar("Losses/G", self.loss_G.avg, global_step=epoch)
-
-    def __repr__(self):
-        return f"Loss G: {self.loss_G.avg} | Loss D (Total/Real/Fake) : {self.loss_D.avg} / {self.loss_D_real.avg} / {self.loss_D_fake.avg}"
         
 class GANLogger():
     def __init__(self, experiment, output, use_tensorboard=True):
@@ -94,9 +46,12 @@ class GANLogger():
         if self.epoch_stats is None:
             raise AttributeError("Epoch statistics non-existant.")
 
-        self.info(self.epoch_stats)
+        report = self.epoch_stats.report()
+        self.info(report)
         if self.tbwriter:
-            self.epoch_stats.tbwrite(self.tbwriter, epoch)
+            for tag in report.tags:
+                self.tbwriter.add_scalar(tag.name, tag.value, global_step=epoch)
+            
             self.tbwriter.flush()
 
     def write_FID(self, FID:float, epoch:int):

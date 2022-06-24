@@ -11,7 +11,7 @@ import torchvision.transforms as transforms
 
 @dataclass()
 class ModelParameters():
-    blocks: Union[nn.Sequential, nn.ModuleList]
+    blocks: list[nn.Sequential]
 
 @dataclass
 class ArchParameters():
