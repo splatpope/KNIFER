@@ -11,7 +11,7 @@ import torchvision.transforms as transforms
 
 @dataclass()
 class ModelParameters():
-    blocks: list[nn.Sequential]
+    blocks: "list[nn.Sequential]"
 
 @dataclass
 class ArchParameters():
@@ -52,7 +52,7 @@ class UpdaterParameters():
 
 @dataclass
 class AugmentationParameters():
-    transforms: list[nn.Module]
+    transforms: "list[nn.Module]"
 
 @dataclass
 class DatasetParameters():
