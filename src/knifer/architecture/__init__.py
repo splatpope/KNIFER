@@ -3,6 +3,8 @@ import torch.nn as nn
 
 from . definitions import *
 
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
 class GANModel(nn.Module):
     def __init__(self, block_defs: "list[BlockDefinition]"):
         super().__init__()
@@ -33,8 +35,8 @@ def first_conv_in_model(target: GANModel):
 class GANArch():
     def __init__(self, arch_def: ArchDefinition):
         self.source = arch_def
-        self.gen = GANModel(arch_def.gen_definition)
-        self.disc = GANModel(arch_def.disc_definition)
+        self.gen = GANModel(arch_def.gen_definition).to(DEVICE)
+        self.disc = GANModel(arch_def.disc_definition).to(DEVICE)
 
     @property
     def latent_size(self) -> int:
