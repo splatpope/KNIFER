@@ -1,4 +1,5 @@
 import ast
+import re
 from functools import partial
 
 from . import *
@@ -11,10 +12,15 @@ def compose_applicables(fn_names: "list[str]") -> CompositeApplicable:
     return CompositeApplicable(functions)
 
 def substitute_macros(expression:str, defines: dict) -> str:
-    for k, v in defines.items():
-        expression = expression.replace(f'${k}', str(v))
-    if '$' in expression:
-        raise MacroUndefinedError
+    pattern = re.compile(r"\s\$(\w+)\b")
+    macros = pattern.findall(expression)
+    print(macros)
+    for macro in macros:
+        if macro not in defines:
+            raise MacroUndefinedError(macro)
+        value = defines[macro]
+        expression = re.sub(rf"\${macro}(\b)", rf"{value}\1", expression)
+        print(expression)
     return expression
 
 def decode_layer_definition(raw_layer_def: str, metadata: DefinitionMetadata):
@@ -25,6 +31,7 @@ def decode_layer_definition(raw_layer_def: str, metadata: DefinitionMetadata):
     default arguments for some kinds of layers (typically ones that are constant
     among the same layer types).
     """
+
     # First things first, expand all macros with their values.
     layer_def_expanded = substitute_macros(raw_layer_def, metadata.defines)
     # Extract the tokens : the layer's "name" and arguments.
@@ -54,6 +61,7 @@ def decode_layer_definition(raw_layer_def: str, metadata: DefinitionMetadata):
 
         arg = ast.literal_eval(arg_str)
         kwargs.update({arg_name:arg})
+
 
     return LayerDefinition(partial(module, **kwargs))
 
