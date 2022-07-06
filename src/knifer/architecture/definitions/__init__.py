@@ -49,16 +49,23 @@ class DefinitionMetadata():
 
 @dataclass
 class LayerDefinition():
+    source: str
     content: Callable
     def __call__(self) -> None:
         self.content()
+    def __repr__(self) -> str:
+        return self.source
 
 @dataclass
 class BlockDefinition():
     source: str
     content: "list[LayerDefinition]"
     def __repr__(self) -> str:
-        return self.source
+        s = ""
+        for ld in self.content:
+            s += repr(ld) + "\n"
+        s += "####\n"
+        return s
 
 @dataclass
 class ArchDefinition():
@@ -66,6 +73,15 @@ class ArchDefinition():
     disc_definition: "list[BlockDefinition]"
     metadata: DefinitionMetadata
 
+    def __repr__(self) -> str:
+        s = "Generator :\n\n"
+        for gbd in self.gen_definition:
+            s += repr(gbd)
+        s += "\n----\n"
+        s += "Discriminator :\n\n"
+        for dbd in self.disc_definition:
+            s += repr(dbd)
+        return s
 class CompositeApplicable():
     def __init__(self, apps: "list[Callable]"):
         self.apps = apps

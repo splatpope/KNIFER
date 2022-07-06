@@ -1,5 +1,5 @@
 import argparse
-from knifer.architecture import build as build_arch
+from knifer.architecture import GANArch
 import knifer.context as KF
 import knifer.config as CFG
 import knifer.config.params as P
@@ -23,8 +23,8 @@ def init():
 
 def create_context(args):
     arch_cfg = CFG.param_dict_from_file(args.arch_file)
-    arch_params = CFG.arch_def_from_dict(arch_cfg)
-    KF.set_arch(build_arch(arch_params))
+    arch_def = CFG.arch_def_from_dict(arch_cfg)
+    KF.set_arch(GANArch(arch_def))
 
     upd_cfg = CFG.param_dict_from_file(args.training_file)
     upd_params = CFG.training_param_from_dict(upd_cfg)

@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 import torch
 import torch.nn as nn
 
@@ -31,10 +30,11 @@ def conv_in_sequential(target: nn.Sequential):
 def first_conv_in_model(target: GANModel):
     return conv_in_sequential(target.blocks[0])
 
-@dataclass
 class GANArch():
-    gen: GANModel
-    disc: GANModel
+    def __init__(self, arch_def: ArchDefinition):
+        self.source = arch_def
+        self.gen = GANModel(arch_def.gen_definition)
+        self.disc = GANModel(arch_def.disc_definition)
 
     @property
     def latent_size(self) -> int:
@@ -44,13 +44,16 @@ class GANArch():
     def img_channels(self) -> int:
         return first_conv_in_model(self.disc).in_channels
 
-    def serialize(self):
+    def serialize(self) -> dict:
         return {
             "G_state": self.gen.state_dict(),
             "D_state": self.gen.state_dict(),
         }
-   
-def build(arch_def: ArchDefinition) -> GANArch:
-    gen_model = GANModel(arch_def.gen_definition)
-    disc_model = GANModel(arch_def.disc_definition)
-    return GANArch(gen_model, disc_model)
+
+    def __repr__(self) -> str:
+        s = "Generator :\n"
+        s += repr(self.gen) + "\n\n"
+        s += "---------\n\n"
+        s += "Discriminator :\n"
+        s += repr(self.disc) + "\n"
+        return s

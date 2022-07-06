@@ -38,7 +38,7 @@ def decode_layer_definition(raw_layer_def: str, metadata: DefinitionMetadata):
     # Special layer name "apply" : we want to apply a function or many functions to
     # the previous layer.
     if func.lower() == "apply":
-        return LayerDefinition(compose_applicables(arg_list_str))
+        return LayerDefinition(layer_def_expanded, compose_applicables(arg_list_str))
     
     # Retrieve the default args if there are any for this layer type.
     # This will serve as a base for our final arguments dict that is going
@@ -61,7 +61,7 @@ def decode_layer_definition(raw_layer_def: str, metadata: DefinitionMetadata):
         kwargs.update({arg_name:arg})
 
 
-    return LayerDefinition(partial(module, **kwargs))
+    return LayerDefinition(layer_def_expanded, partial(module, **kwargs))
 
 
 def decode_block_definition(raw_block_def: str, metadata: DefinitionMetadata) -> list:
