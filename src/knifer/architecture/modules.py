@@ -1,10 +1,6 @@
-from typing import Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils.parametrizations import spectral_norm
-
-from knifer.config import params as P
 
 def NOOP(x):
     return x

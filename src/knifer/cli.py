@@ -23,7 +23,7 @@ def init():
 
 def create_context(args):
     arch_cfg = CFG.param_dict_from_file(args.arch_file)
-    arch_params = CFG.arch_param_from_dict(arch_cfg)
+    arch_params = CFG.arch_def_from_dict(arch_cfg)
     KF.set_arch(build_arch(arch_params))
 
     upd_cfg = CFG.param_dict_from_file(args.training_file)

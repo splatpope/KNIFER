@@ -1,8 +1,8 @@
 --- # img size 32
 defines:
-  LS: 8
-  IMG_CH: 3
-  SCF: 4
+  LS: 8 #latent space size
+  IMG_CH: 3 #image channels (RGB)
+  SCF: 4 #size of first/last convolution filter for gen/disc (i.e. first upscale/downscale)
 kwarg_defaults:
   relu: 
     inplace: True

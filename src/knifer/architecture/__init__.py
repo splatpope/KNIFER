@@ -1,18 +1,27 @@
 from dataclasses import dataclass
-from functools import reduce
 import torch
 import torch.nn as nn
 
-from knifer.config import params as P
+from . definitions import *
 
 class GANModel(nn.Module):
-    def __init__(self, params: P.ModelParameters):
+    def __init__(self, block_defs: "list[BlockDefinition]"):
         super().__init__()
-        self.blocks = nn.Sequential(*params.blocks)
+        blocks = list()
+        for bid, block_def in enumerate(block_defs):
+            layers = list()
+            for lid, layer_def in enumerate(block_def.content):
+                if isinstance(layer_def.content, CompositeApplicable):
+                    if not layers:
+                        raise NoPreviousLayerError
+                    layer_def.content(layers[-1])
+                else:
+                    layers.append(layer_def.content())
+            blocks.append(nn.Sequential(*layers))
+        self.blocks = nn.Sequential(*blocks)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return self.blocks(input)
-
 
 def conv_in_sequential(target: nn.Sequential):
     for m in target:
@@ -41,7 +50,7 @@ class GANArch():
             "D_state": self.gen.state_dict(),
         }
    
-def build(params: P.ArchParameters) -> GANArch:
-    gen_model = GANModel(params.gen)
-    disc_model = GANModel(params.disc)
+def build(arch_def: ArchDefinition) -> GANArch:
+    gen_model = GANModel(arch_def.gen_definition)
+    disc_model = GANModel(arch_def.disc_definition)
     return GANArch(gen_model, disc_model)

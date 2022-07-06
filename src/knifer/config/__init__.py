@@ -1,7 +1,7 @@
-from dataclasses import dataclass
 import yaml
 
-from knifer.architecture.definitions import decode_block_definition
+from knifer.architecture.definitions import ArchDefinition, DefinitionMetadata
+from knifer.architecture.definitions.codec import decode_arch_definition
 from . import params as P
 
 def training_param_from_dict(trainer_cfg: dict) -> P.UpdaterParameters:
@@ -28,26 +28,19 @@ def training_param_from_dict(trainer_cfg: dict) -> P.UpdaterParameters:
     return P.UpdaterParameters(**tp_dict)
 
 
-def arch_param_from_dict(arch_cfg: dict) -> P.ArchParameters:
-    """ Create architecture parameters from a dictionnary. """
-    gen_def = arch_cfg["gen"]
-    disc_def = arch_cfg["disc"]
-    defines = arch_cfg["defines"]
-    kwarg_defaults = arch_cfg["kwarg_defaults"]
+def arch_def_from_dict(arch_cfg: dict) -> ArchDefinition:
+    """ 
+    Create an architecture definition from a dictionary of string representations.
+    """
+    gen_def_raw = arch_cfg["gen"]
+    disc_def_raw = arch_cfg["disc"]
+    md = DefinitionMetadata(arch_cfg["defines"], arch_cfg["kwarg_defaults"])
 
-    gen_blocks = [decode_block_definition(block_def, defines, kwarg_defaults) for block_def in gen_def]
-    disc_blocks = [decode_block_definition(block_def, defines, kwarg_defaults) for block_def in disc_def]
-
-    arch_params = {
-        "gen": P.ModelParameters(gen_blocks),
-        "disc": P.ModelParameters(disc_blocks),
-    }
-
-    return P.ArchParameters(**arch_params)
+    return decode_arch_definition(gen_def_raw, disc_def_raw, md)
 
 
 def param_dict_from_file(cfg_path: str) -> dict:
-    """ Create architecture parameters from a YAML config file. """
+    """ Retrieve a parameter dictionary from a YAML config file. """
     import knifer.context as KF
     with open(cfg_path, 'r') as f:
         try:

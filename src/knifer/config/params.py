@@ -1,25 +1,13 @@
 import sys
-from functools import partial
-from dataclasses import dataclass, asdict
-from typing import Union
+from dataclasses import dataclass
 
 import torch.optim as optim
 import torch.nn as nn
 import torchvision.transforms as transforms
 
-#### Architecture definition ####
-
-@dataclass()
-class ModelParameters():
-    blocks: "list[nn.Sequential]"
-
-@dataclass
-class ArchParameters():
-    gen: ModelParameters
-    disc: ModelParameters
-
 #### Model update process definition ####
-
+## TODO : take care of all this like with models
+## because they aren't really parameters, they're factories
 @dataclass
 class OptimParameters():
     lr: float
@@ -40,7 +28,7 @@ class AdamParameters(OptimParameters):
                 weight_decay = self.weight_decay,
             )
 
-@dataclass ## TODO : take care of all this like with models
+@dataclass 
 class UpdaterParameters():
     batch_size: int
     opt_G: OptimParameters
