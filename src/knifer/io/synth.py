@@ -14,5 +14,5 @@ def synth_n_fakes(n=1, z=None):
         z = torch.randn(n, KF.ARCH.latent_size, 1, 1)
     with torch.no_grad():
         KF.ARCH.gen.eval()
-        fakes = KF.ARCH.gen(z).to("cpu")
+        fakes = KF.ARCH.gen(z)#.to("cpu")
         return denormalize(fakes)
