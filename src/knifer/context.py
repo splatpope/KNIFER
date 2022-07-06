@@ -1,7 +1,11 @@
+import torch
+
 import knifer.architecture as kfarch
 import knifer.training.updater as kfupd
 import knifer.training.data as kfdata
 import knifer.io.logging as kflog
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 def set_arch(arch: kfarch.GANArch):
     global ARCH

@@ -14,7 +14,7 @@ class Experiment():
         self.storage_path = params.storage_path
 
         self.epoch = 0
-        self.fixed_z = torch.randn(32, KF.ARCH.latent_size, 1, 1)
+        self.fixed_z = torch.randn(32, KF.ARCH.latent_size, 1, 1).to(KF.DEVICE)
 
     def simple_train_loop(self, n_epochs):
 
