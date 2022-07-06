@@ -14,13 +14,11 @@ def compose_applicables(fn_names: "list[str]") -> CompositeApplicable:
 def substitute_macros(expression:str, defines: dict) -> str:
     pattern = re.compile(r"\s\$(\w+)\b")
     macros = pattern.findall(expression)
-    print(macros)
     for macro in macros:
         if macro not in defines:
             raise MacroUndefinedError(macro)
         value = defines[macro]
         expression = re.sub(rf"\${macro}(\b)", rf"{value}\1", expression)
-        print(expression)
     return expression
 
 def decode_layer_definition(raw_layer_def: str, metadata: DefinitionMetadata):
